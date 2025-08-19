@@ -25,6 +25,7 @@ databricks-cli = "^0.17.0"
 [tool.setuptools.data-files]
 "spark_aggregation_poc/data" = ["src/spark_aggregation_poc/data/*"]
 "spark_aggregation_poc/config" = ["src/spark_aggregation_poc/config/*"]
+"spark_aggregation_poc/jars" = ["src/spark_aggregation_poc/jars/*"]
 
 [build-system]
 requires = ["poetry-core"]

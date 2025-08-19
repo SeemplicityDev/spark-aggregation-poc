@@ -1,3 +1,5 @@
+import os
+
 from pyspark.sql import SparkSession, DataFrame
 
 from spark_aggregation_poc.dal.read_service import ReadService
@@ -13,6 +15,11 @@ TODO:
 """
 
 
+def run_aggregation_from_dbx(spark: SparkSession):
+    # _run_aggregation(spark)
+    _run_test(spark)
+
+
 def _run_test(spark):
     query = "select * from postgres_prod_eu_unilever.unilever.aggregation_rules limit 100;"
 
@@ -20,20 +27,25 @@ def _run_test(spark):
     df = spark.sql(query)
     df.show()
 
-
-def run_aggregation_from_dbx(spark: SparkSession):
-    # _run_aggregation(spark)
-    _run_test(spark)
-
 def main():
+
+    jar_path = get_jar_path()
 
     spark = SparkSession.builder \
         .appName("PostgreSQLSparkApp") \
         .master("local[*]") \
-        .config("spark.jars", "/Users/eranmoscovici/Learn/spark-aggregation-poc/jars/postgresql-42.7.1.jar") \
+        .config("spark.jars", jar_path) \
         .getOrCreate()
 
     _run_aggregation(spark)
+
+
+def get_jar_path():
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)  # src/spark_aggregation_poc/
+    jar_path = os.path.join(current_dir, "jars", "postgresql-42.7.1.jar")
+    print("jar_path:", jar_path)
+    return jar_path
 
 
 def _run_aggregation(spark):
@@ -60,10 +72,10 @@ def _run_aggregation(spark):
         df_transformed.show(truncate=False)
         print(f"Transform time: {time() - start:.2f} seconds")
 
-        print("\n=== Writing to groups_to_findings table ===")
-        start = time()
-        write_service.write_groups_to_findings(df_transformed)
-        print(f"Write time: {time() - start:.2f} seconds")
+        # print("\n=== Writing to groups_to_findings table ===")
+        # start = time()
+        # write_service.write_groups_to_findings(df_transformed)
+        # print(f"Write time: {time() - start:.2f} seconds")
 
 
     except Exception as e:

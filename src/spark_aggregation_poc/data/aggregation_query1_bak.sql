@@ -40,12 +40,11 @@
        where (findings.id not in (select anon_1.finding_id
                                   from (select aggregation_rules_findings_excluder.finding_id as finding_id
                                         from aggregation_rules_findings_excluder
-                                        where aggregation_rules_findings_excluder.aggregation_rule_id = 10) as anon_1))
---         and findings.id >= 1
---         and findings.id <= 100
+                                        where aggregation_rules_findings_excluder.aggregation_rule_id = 1) as anon_1))
+         and findings.id >= 1
+         and findings.id <= 10
          and findings.package_name is not null
        group by findings.package_name) as sub_query
           left outer join aggregation_groups on
      aggregation_groups.group_identifier = sub_query.calculated_group_identifier
-         and aggregation_groups.is_locked is false
-         limit 10) as findings_data_alias
+         and aggregation_groups.is_locked is false) as findings_data_alias

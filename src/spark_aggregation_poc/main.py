@@ -2,6 +2,7 @@ import os
 
 from pyspark.sql import SparkSession, DataFrame
 
+from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
@@ -14,18 +15,16 @@ TODO:
 3. Implement algorithm
 """
 
+# config: Config = Config(postgres_url="jdbc:postgresql://localhost:5432/postgres?currentSchema=seemplicitytest",
+#                         postgres_properties={
+#                             "user": "myuser",
+#                             "password": "mypassword",
+#                             "driver": "org.postgresql.Driver"
+#                         }
+#                         )
 
-def run_aggregation_from_dbx(spark: SparkSession):
-    _run_aggregation(spark)
-    # _run_test(spark)
-
-
-def _run_test(spark):
-    query = "select * from postgres_prod_eu_unilever.unilever.aggregation_rules limit 100;"
-
-    print(query)
-    df = spark.sql(query)
-    df.show()
+def run_aggregation_from_dbx(spark: SparkSession, config: dict = None):
+    _run_aggregation(spark, config)
 
 def main():
 
@@ -48,9 +47,9 @@ def get_jar_path():
     return jar_path
 
 
-def _run_aggregation(spark):
+def _run_aggregation(spark: SparkSession, config: Config = None):
     try:
-        app_context: AppContext = build_app_context()
+        app_context: AppContext = build_app_context(config)
         read_service: ReadService = app_context.read_service
         write_service: WriteService = app_context.write_service
         transform_service: AggregationService = app_context.transform_service

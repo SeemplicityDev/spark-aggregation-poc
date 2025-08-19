@@ -14,8 +14,9 @@ class AppContext:
     write_service: WriteService
     transform_service: AggregationService
 
-def build_app_context() -> AppContext:
-    config: Config = ConfigLoader.load_config()
+def build_app_context(config: Config = None) -> AppContext:
+    if config is None:
+        config: Config = ConfigLoader.load_config()
     read_service: ReadService = Factory.create_read_service(config)
     write_service: WriteService = Factory.create_write_service(config)
     transform_service: AggregationService = Factory.create_transform_service()

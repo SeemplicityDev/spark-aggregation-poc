@@ -12,8 +12,18 @@ TODO:
 3. Implement algorithm
 """
 
+
+def _run_test(spark):
+    query = "select * from postgres_prod_eu_unilever.unilever.aggregation_rules limit 100;"
+
+    print(query)
+    df = spark.sql(query)
+    df.show()
+
+
 def run_aggregation_from_dbx(spark: SparkSession):
-    _run_aggregation(spark)
+    # _run_aggregation(spark)
+    _run_test(spark)
 
 def main():
 

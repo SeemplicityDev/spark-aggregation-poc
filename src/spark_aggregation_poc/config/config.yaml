@@ -1,0 +1,7 @@
+
+postgres:
+  postgres_url: jdbc:postgresql://localhost:5432/postgres?currentSchema=seemplicitytest
+  postgres_properties:
+    user: myuser
+    password: mypassword
+    driver: org.postgresql.Driver

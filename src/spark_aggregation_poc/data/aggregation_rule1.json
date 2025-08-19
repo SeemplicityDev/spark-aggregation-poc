@@ -1,0 +1,21 @@
+{
+    "filters_config":
+    {
+        "filters_fields_to_exclude": "None",
+        "filters_fields_to_include": "None",
+        "filters_fields_to_override": "None",
+        "filtersid": "None",
+        "filtersjson": "None",
+        "scope_group": "None",
+        "scopes_fields_to_exclude": "None",
+        "scopes_fields_to_include": "None",
+        "scopes_fields_to_override": "None",
+        "scopesid": "None",
+        "scopesjson":
+        {}
+    },
+    "group_by":
+    [
+        "findings.package_name"
+    ]
+}

@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "spark-aggregation-poc"
+version = "0.1.0"
+description = "Spark aggregation proof of concept for PostgreSQL data processing"
+authors = ["eranmoscovici <eran@seemplicity.io>"]
+readme = "README.md"
+packages = [{include = "spark_aggregation_poc", from = "src"}]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"  # Databricks supports 3.8+
+pyyaml = "^6.0"
+# Note: Don't include pyspark - Databricks provides it
+
+[tool.poetry.group.dev.dependencies]
+pyspark = "^3.3.0"  # Only for local development
+pytest = "^7.0"
+black = "^22.0"
+flake8 = "^4.0"
+
+[tool.poetry.group.databricks.dependencies]
+databricks-cli = "^0.17.0"
+
+# Include data files
+[tool.setuptools.data-files]
+"spark_aggregation_poc/data" = ["src/spark_aggregation_poc/data/*"]
+"spark_aggregation_poc/config" = ["src/spark_aggregation_poc/config/*"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

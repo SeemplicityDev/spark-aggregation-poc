@@ -19,7 +19,6 @@ TODO:
 
 def run_aggregation_from_dbx(spark: SparkSession, config: Config = None):
     _run_aggregation(spark, config)
-    spark.stop()
 
 def main():
 
@@ -77,7 +76,8 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         # TODO: add rollback functionality (first write to staging_table and validate the expected count (inside driver))
     finally:
         # Stop Spark
-        spark.stop()
+        if(config and config.is_databricks is False):
+            spark.stop()
 
 
 if __name__ == "__main__":

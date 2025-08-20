@@ -47,5 +47,4 @@
        group by findings.package_name) as sub_query
           left outer join aggregation_groups on
      aggregation_groups.group_identifier = sub_query.calculated_group_identifier
-         and aggregation_groups.is_locked is false
-         limit 100000) as findings_data_alias
+         and aggregation_groups.is_locked is false) as findings_data_alias

@@ -19,12 +19,11 @@ class ReadService:
         # Read from PostgreSQL people table
         print("=== Reading from PostgreSQL 'findings, etc.' tables ===")
         join_query: str = self.get_join_query()
-        # df: DataFrame = spark.read.jdbc(
-        #     url=self.postgres_url,
-        #     table=join_query,
-        #     properties=self.postgres_properties
-        # )
-        df: DataFrame = spark.sql(join_query)
+        df: DataFrame = spark.read.jdbc(
+            url=self.postgres_url,
+            table=join_query,
+            properties=self.postgres_properties
+        )
         # Show DataFrame
         print("=== Current DataFrame ===")
         df.show()

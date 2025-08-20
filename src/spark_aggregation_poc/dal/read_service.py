@@ -27,7 +27,7 @@ class ReadService:
         )
         # Show DataFrame
         print("=== Current DataFrame ===")
-        df.show()
+        df.show(10)
         # Direct deserialization: DB → Person objects (using RDD map)
         print("=== Converting directly to FindingsData objects ===")
         findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)

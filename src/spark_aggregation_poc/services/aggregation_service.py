@@ -21,7 +21,7 @@ class AggregationService():
         # Apply mapGroups via rdd - just some processing logic to demonstrate processing each group individually
         processed_df = grouped.map(lambda kv: self.process_group(kv[0], kv[1])).toDF()
         print("=== After final grouping and processing ===")
-        processed_df.show(truncate=False)
+        processed_df.show(10, truncate=False)
         return df
 
 

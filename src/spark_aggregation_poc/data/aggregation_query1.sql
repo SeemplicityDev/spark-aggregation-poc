@@ -48,4 +48,4 @@
           left outer join aggregation_groups on
      aggregation_groups.group_identifier = sub_query.calculated_group_identifier
          and aggregation_groups.is_locked is false
-         limit 100) as findings_data_alias
+         limit 1000) as findings_data_alias

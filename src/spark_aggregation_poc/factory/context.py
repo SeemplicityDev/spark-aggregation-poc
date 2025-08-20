@@ -17,6 +17,8 @@ class AppContext:
 def build_app_context(config: Config = None) -> AppContext:
     if config is None:
         config: Config = ConfigLoader.load_config()
+    print("=== Building AppContext, Config:===")
+    print(config)
     read_service: ReadService = Factory.create_read_service(config)
     write_service: WriteService = Factory.create_write_service(config)
     transform_service: AggregationService = Factory.create_transform_service()

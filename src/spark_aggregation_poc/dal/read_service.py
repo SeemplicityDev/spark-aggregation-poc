@@ -26,6 +26,7 @@ class ReadService:
             properties=self.postgres_properties
         )
         # Show DataFrame
+        print(f"Number of rows from DB:", df.count())
         print("=== Current DataFrame ===")
         df.show(10)
         # Direct deserialization: DB → Person objects (using RDD map)

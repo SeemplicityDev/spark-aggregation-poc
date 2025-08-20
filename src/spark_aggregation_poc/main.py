@@ -17,7 +17,7 @@ TODO:
 
 
 
-def run_aggregation_from_dbx(spark: SparkSession, config: dict = None):
+def run_aggregation_from_dbx(spark: SparkSession, config: Config = None):
     _run_aggregation(spark, config)
 
 def main():

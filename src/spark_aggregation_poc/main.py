@@ -15,13 +15,7 @@ TODO:
 3. Implement algorithm
 """
 
-# config: Config = Config(postgres_url="jdbc:postgresql://localhost:5432/postgres?currentSchema=seemplicitytest",
-#                         postgres_properties={
-#                             "user": "myuser",
-#                             "password": "mypassword",
-#                             "driver": "org.postgresql.Driver"
-#                         }
-#                         )
+
 
 def run_aggregation_from_dbx(spark: SparkSession, config: dict = None):
     _run_aggregation(spark, config)

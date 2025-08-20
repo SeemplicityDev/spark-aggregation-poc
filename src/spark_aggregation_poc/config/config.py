@@ -9,6 +9,7 @@ import yaml
 class Config:
     postgres_url: str
     postgres_properties: dict
+    is_databricks: bool = False
 
 class ConfigLoader:
     @classmethod

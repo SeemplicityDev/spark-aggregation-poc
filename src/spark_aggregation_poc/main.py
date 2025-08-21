@@ -51,7 +51,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df, findings_data = read_service.read_findings_data(spark=spark)
+        df = read_service.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
         # df_transformed: DataFrame = transform_service.aggregate(df)

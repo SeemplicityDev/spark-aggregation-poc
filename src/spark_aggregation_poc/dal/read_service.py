@@ -16,8 +16,7 @@ class ReadService:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession) -> DataFrame:\
-            # -> tuple[DataFrame, list[FindingData]]:
+    def read_findings_data(self, spark: SparkSession) -> tuple[DataFrame, list[FindingData]]:
         # Read from PostgreSQL people table
         print("=== Reading from PostgreSQL 'findings, etc.' tables ===")
         join_query: str = self.get_join_query()
@@ -34,7 +33,7 @@ class ReadService:
         )
 
         # Apply logging
-        # df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
+        df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
 
         # Show DataFrame
         print(f"Number of rows from DB:", df.count())
@@ -44,8 +43,7 @@ class ReadService:
         print("=== Converting directly to FindingsData objects ===")
         findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
         findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
-        # return df, findings_data
-        return df
+        return df, findings_data
 
 
     def log_partition_info(self, partition_index: int, iterator: Iterator[Row]) -> Iterator[Row]:

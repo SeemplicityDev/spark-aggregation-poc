@@ -21,12 +21,12 @@ class ReadService:
         df: DataFrame = spark.read.jdbc(
             url=self.postgres_url,
             table=join_query,
-            properties=self.postgres_properties,
-            # # Add these for parallel reading:
-            column="finding_id",  # Use a numeric column for partitioning
-            lowerBound=1,
-            upperBound=1000000,
-            numPartitions=4  # Number of parallel reads
+            properties=self.postgres_properties
+            # # # Add these for parallel reading:
+            # column="finding_id",  # Use a numeric column for partitioning
+            # lowerBound=1,
+            # upperBound=1000000,
+            # numPartitions=4  # Number of parallel reads
         )
 
         # Log partition information using DataFrame operations

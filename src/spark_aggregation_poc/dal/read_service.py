@@ -45,7 +45,7 @@ class ReadService:
         return df, findings_data
 
 
-    def log_partition_info(index, iterator):
+    def log_partition_info(self, partition_index, iterator):
         from pyspark import TaskContext
         import socket
 

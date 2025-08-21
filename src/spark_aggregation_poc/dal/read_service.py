@@ -17,7 +17,7 @@ class ReadService:
         # Read from PostgreSQL people table
         print("=== Reading from PostgreSQL 'findings, etc.' tables ===")
         join_query: str = self.get_join_query()
-        print(f"join_query: {join_query}")
+        # print(f"join_query: {join_query}")
         df: DataFrame = spark.read.jdbc(
             url=self.postgres_url,
             table=join_query,
@@ -50,8 +50,8 @@ class ReadService:
         # Analyze partition distribution
         partition_stats = df_with_partition.groupBy("partition_id").agg(
             count("*").alias("row_count"),
-            spark_min("main_finding_id").alias("min_finding_id"),
-            spark_max("main_finding_id").alias("max_finding_id")
+            spark_min("finding_id").alias("min_finding_id"),
+            spark_max("finding_id").alias("max_finding_id")
         ).orderBy("partition_id")
 
         print("Partition distribution:")

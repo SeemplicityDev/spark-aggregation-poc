@@ -17,7 +17,7 @@ config = Config(
     is_databricks=True
 )
 # Cell 1: Monitor cluster configuration
-print("=== Cluster Configuration === ")
+print("=== Cluster Configuration ===")
 print(f"Executor memory: {spark.conf.get('spark.executor.memory')}")
 print(f"Default parallelism: {spark.sparkContext.defaultParallelism}")
 

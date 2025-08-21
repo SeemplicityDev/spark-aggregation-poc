@@ -1,12 +1,9 @@
 import os
-from typing import Iterator
 
-from pyspark import RDD, Row
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import spark_partition_id, count, min as spark_min, max as spark_max
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.models.finding_data import FindingData
-from spark_aggregation_poc.utils.parse_utils import row_to_finding_data
 
 
 class ReadService:
@@ -16,7 +13,7 @@ class ReadService:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession) -> tuple[DataFrame, list[FindingData]]:
+    def read_findings_data(self, spark: SparkSession) -> DataFrame:
         # Read from PostgreSQL people table
         print("=== Reading from PostgreSQL 'findings, etc.' tables ===")
         join_query: str = self.get_join_query()
@@ -32,39 +29,41 @@ class ReadService:
             numPartitions=4  # Number of parallel reads
         )
 
-        # Apply logging
-        df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
+        # Log partition information using DataFrame operations
+        self.log_partition_info_dataframe(df)
 
-        # Show DataFrame
-        print(f"Number of rows from DB:", df.count())
+        # Show DataFrame statistics
+        row_count = df.count()
+        print(f"Number of rows from DB: {row_count}")
         print("=== Current DataFrame ===")
         df.show(10)
-        # Direct deserialization: DB → Person objects (using RDD map)
-        print("=== Converting directly to FindingsData objects ===")
-        findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
-        findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
-        return df, findings_data
 
+        return df
 
-    def log_partition_info(self, partition_index: int, iterator: Iterator[Row]) -> Iterator[Row]:
-        from pyspark import TaskContext
-        import socket
+    def log_partition_info_dataframe(self, df: DataFrame):
+        """Log partition information using DataFrame operations"""
+        print("=== Partition Distribution Analysis ===")
 
-        # Turn the iterator into a list to inspect, but cache it if needed
-        rows = list(iterator)
-        if not rows:
-            return iter([])
+        # Add partition ID to DataFrame
+        df_with_partition = df.withColumn("partition_id", spark_partition_id())
 
-        finding_ids = [row.finding_id for row in rows]
-        print(
-            f"[Executor: {TaskContext.get().stageId()}, "
-            f"Partition: {TaskContext.get().partitionId()}, "
-            f"Partition_Index: {partition_index}, "
-            f"Host: {socket.gethostname()}] "
-            f"Min: {min(finding_ids)}, Max: {max(finding_ids)}"
-        )
+        # Analyze partition distribution
+        partition_stats = df_with_partition.groupBy("partition_id").agg(
+            count("*").alias("row_count"),
+            spark_min("main_finding_id").alias("min_finding_id"),
+            spark_max("main_finding_id").alias("max_finding_id")
+        ).orderBy("partition_id")
 
-        return iter(rows)  # Convert back to iterator
+        print("Partition distribution:")
+        partition_stats.show()
+
+        # Analyze by calculated_group_identifier distribution
+        group_distribution = df.groupBy("calculated_group_identifier").agg(
+            count("*").alias("group_size")
+        ).orderBy("group_size", ascending=False)
+
+        print("Top 10 largest groups:")
+        group_distribution.show(10)
 
 
 

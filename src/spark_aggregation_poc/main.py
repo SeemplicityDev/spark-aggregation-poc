@@ -51,25 +51,19 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        # df, findings_data = read_service.read_findings_data(spark=spark)
         df, findings_data = read_service.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
-        # # Work with Person objects
-        # print("=== All Finding Data as Objects ===")
-        # for finding_data in findings_data:
-        #     print(f"  {finding_data}")
-
-        df_transformed: DataFrame = transform_service.aggregate(df)
-        print("\n=== Groups to findings ===")
-        start = time()
-        df_transformed.show(10, truncate=False)
-        print(f"Transform time: {time() - start:.2f} seconds")
-
-        print("\n=== Writing to groups_to_findings table ===")
-        start = time()
-        write_service.write_groups_to_findings(df_transformed)
-        print(f"Write time: {time() - start:.2f} seconds")
+        # df_transformed: DataFrame = transform_service.aggregate(df)
+        # print("\n=== Groups to findings ===")
+        # start = time()
+        # df_transformed.show(10, truncate=False)
+        # print(f"Transform time: {time() - start:.2f} seconds")
+        #
+        # print("\n=== Writing to groups_to_findings table ===")
+        # start = time()
+        # write_service.write_groups_to_findings(df_transformed)
+        # print(f"Write time: {time() - start:.2f} seconds")
 
 
     except Exception as e:

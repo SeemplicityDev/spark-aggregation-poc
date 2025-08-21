@@ -34,16 +34,16 @@ class ReadService:
         )
 
         # Apply logging
-        df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
+        # df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
 
         # Show DataFrame
         print(f"Number of rows from DB:", df.count())
         print("=== Current DataFrame ===")
         df.show(10)
         # Direct deserialization: DB → Person objects (using RDD map)
-        # print("=== Converting directly to FindingsData objects ===")
-        # findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
-        # findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
+        print("=== Converting directly to FindingsData objects ===")
+        findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
+        findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
         # return df, findings_data
         return df
 

@@ -16,7 +16,8 @@ class ReadService:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession) -> tuple[DataFrame, list[FindingData]]:
+    def read_findings_data(self, spark: SparkSession) -> DataFrame:\
+            # -> tuple[DataFrame, list[FindingData]]:
         # Read from PostgreSQL people table
         print("=== Reading from PostgreSQL 'findings, etc.' tables ===")
         join_query: str = self.get_join_query()
@@ -40,10 +41,11 @@ class ReadService:
         print("=== Current DataFrame ===")
         df.show(10)
         # Direct deserialization: DB → Person objects (using RDD map)
-        print("=== Converting directly to FindingsData objects ===")
-        findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
-        findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
-        return df, findings_data
+        # print("=== Converting directly to FindingsData objects ===")
+        # findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
+        # findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
+        # return df, findings_data
+        return df
 
 
     def log_partition_info(self, partition_index: int, iterator: Iterator[Row]) -> Iterator[Row]:

@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Spark Aggregation POC - Databricks Analysis
+# MAGIC # Spark Aggregation POC - Databricks Notebook
 
 # COMMAND ----------
 

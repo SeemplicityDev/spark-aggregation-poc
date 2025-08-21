@@ -1,6 +1,6 @@
 import os
 
-from pyspark import RDD
+from pyspark import RDD, TaskContext
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
@@ -30,6 +30,10 @@ class ReadService:
             upperBound=1000000,
             numPartitions=4  # Number of parallel reads
         )
+
+        # Apply logging
+        df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
+
         # Show DataFrame
         print(f"Number of rows from DB:", df.count())
         print("=== Current DataFrame ===")
@@ -39,6 +43,28 @@ class ReadService:
         findings_data_rdd: RDD[FindingData] = df.rdd.map(row_to_finding_data)
         findings_data: list[FindingData] = findings_data_rdd.collect()  # Only collect once, after transformation
         return df, findings_data
+
+
+    def log_partition_info(index, iterator):
+        from pyspark import TaskContext
+        import socket
+
+        # Turn the iterator into a list to inspect, but cache it if needed
+        rows = list(iterator)
+        if not rows:
+            return iter([])
+
+        finding_ids = [row.finding_id for row in rows]
+        print(
+            f"[Executor: {TaskContext.get().stageId()}, "
+            f"Partition: {TaskContext.get().partitionId()}, "
+            f"Host: {socket.gethostname()}] "
+            f"Min: {min(finding_ids)}, Max: {max(finding_ids)}"
+        )
+
+        return iter(rows)  # Convert back to iterator
+
+
 
     def get_join_query(self):
         # Get the directory where this file is located

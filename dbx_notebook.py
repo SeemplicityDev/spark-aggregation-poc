@@ -9,7 +9,7 @@ import os
 import time
 
 # Add the src directory to Python path
-sys.path.append("/Workspace/Repos/eran@seemplicity.io/spark-aggregation-poc/src")
+sys.path.append("/Workspace/Users/eran@seemplicity.io/spark-aggregation-poc/src")
 
 # COMMAND ----------
 
@@ -27,10 +27,10 @@ print(f"Spark UI URL: {spark.sparkContext.uiWebUrl}")
 # COMMAND ----------
 
 config = Config(
-    postgres_url="jdbc:postgresql://vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com:54323/postgres?currentSchema=seemplicitydemo",
+    postgres_url="jdbc:postgresql://vpce-0bcb337939c5a06a6-o7h3s15r.vpce-svc-0418e833a2533b2a4.eu-central-1.vpce.amazonaws.com:54320/postgres?currentSchema=seemplicitydemo",
     postgres_properties={
         "user": "postgres",
-        "password": "vCo8trJkeg57Vp53",
+        "password": "xjmYaNSrQK6hqHQD",
         "driver": "org.postgresql.Driver"
     },
     is_databricks=True

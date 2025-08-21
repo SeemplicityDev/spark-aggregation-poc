@@ -1,6 +1,7 @@
 import os
+from typing import Iterator
 
-from pyspark import RDD, TaskContext
+from pyspark import RDD, Row
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
@@ -45,7 +46,7 @@ class ReadService:
         return df, findings_data
 
 
-    def log_partition_info(self, partition_index, iterator):
+    def log_partition_info(self, partition_index: int, iterator: Iterator[Row]) -> Iterator[Row]:
         from pyspark import TaskContext
         import socket
 
@@ -58,6 +59,7 @@ class ReadService:
         print(
             f"[Executor: {TaskContext.get().stageId()}, "
             f"Partition: {TaskContext.get().partitionId()}, "
+            f"Partition_Index: {partition_index}, "
             f"Host: {socket.gethostname()}] "
             f"Min: {min(finding_ids)}, Max: {max(finding_ids)}"
         )

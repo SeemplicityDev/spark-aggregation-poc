@@ -34,7 +34,7 @@ class ReadService:
         )
 
         # Apply logging
-        # df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
+        df.rdd.mapPartitionsWithIndex(self.log_partition_info).collect()
 
         # Show DataFrame
         print(f"Number of rows from DB:", df.count())

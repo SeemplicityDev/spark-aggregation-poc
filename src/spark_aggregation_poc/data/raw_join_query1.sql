@@ -1,4 +1,4 @@
-SELECT
+(SELECT
     findings.id as finding_id,
     findings.package_name,
     findings.main_resource_id,
@@ -36,4 +36,4 @@ LEFT OUTER JOIN findings_info ON
     findings_info.id = findings.id
 LEFT OUTER JOIN aggregation_rules_findings_excluder ON
     findings.id = aggregation_rules_findings_excluder.finding_id
-AND findings.package_name IS NOT NULL
+AND findings.package_name IS NOT NULL) as findings_data_alias

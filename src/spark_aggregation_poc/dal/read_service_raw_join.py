@@ -51,6 +51,23 @@ class ReadServiceRawJoin:
 
         raw_query = self.get_join_query()
 
+        # QUICK TEST: Check schema first
+        print("=== Testing query schema ===")
+        test_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table=raw_query,
+            properties=optimized_properties
+        ).limit(1)
+
+        print("Available columns:", test_df.columns)
+
+        if "finding_id" not in test_df.columns:
+            print("❌ finding_id column not found!")
+            print("Query might have SQL syntax error")
+            return test_df
+
+        print("✓ finding_id column exists, proceeding with partitioning...")
+
         # For large datasets, use partitioning on findings.id
         df = spark.read.jdbc(
             url=self.postgres_url,

@@ -4,6 +4,7 @@ from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePreP
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
 
 class Factory:

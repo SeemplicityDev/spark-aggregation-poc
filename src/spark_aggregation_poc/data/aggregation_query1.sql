@@ -2,8 +2,7 @@
         sub_query.calculated_finding_id       as calculated_finding_id,
         sub_query.finding_ids_without_group   as finding_ids_without_group,
         aggregation_groups.id                 as group_id,
-        aggregation_groups.main_finding_id    as main_finding_id,
-        finding_id
+        aggregation_groups.main_finding_id    as main_finding_id
  from (select md5(concat_ws('-',
                             '1',
                             findings.package_name))    as calculated_group_identifier,
@@ -16,8 +15,7 @@
                         '2025/08/07T13/50/14.541213Z') as calculated_finding_id,
               coalesce(array_agg(findings.id) filter(
                   where aggregation_groups.id is null),
-                       ARRAY[] ::integer[])            as finding_ids_without_group,
-           Max(findings.id) as finding_id
+                       ARRAY[] ::integer[])            as finding_ids_without_group
        from findings
                 left outer join finding_sla_rule_connections on
            findings.id = finding_sla_rule_connections.finding_id

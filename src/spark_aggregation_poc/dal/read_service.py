@@ -22,15 +22,10 @@ class ReadService:
             url=self.postgres_url,
             table=join_query,
             properties=self.postgres_properties
-            # # # Add these for parallel reading:
-            # column="finding_id",  # Use a numeric column for partitioning
-            # lowerBound=1,
-            # upperBound=1000000,
-            # numPartitions=4  # Number of parallel reads
         )
 
         # Log partition information using DataFrame operations
-        self.log_partition_info_dataframe(df)
+        # self.log_partition_info_dataframe(df)
 
         # Show DataFrame statistics
         row_count = df.count()
@@ -50,20 +45,12 @@ class ReadService:
         # Analyze partition distribution
         partition_stats = df_with_partition.groupBy("partition_id").agg(
             count("*").alias("row_count"),
-            spark_min("finding_id").alias("min_finding_id"),
-            spark_max("finding_id").alias("max_finding_id")
+            spark_min("min_finding_id").alias("min_finding_id"),
+            spark_max("max_finding_id").alias("max_finding_id")
         ).orderBy("partition_id")
 
         print("Partition distribution:")
         partition_stats.show()
-
-        # Analyze by calculated_group_identifier distribution
-        group_distribution = df.groupBy("calculated_group_identifier").agg(
-            count("*").alias("group_size")
-        ).orderBy("group_size", ascending=False)
-
-        print("Top 10 largest groups:")
-        group_distribution.show(10)
 
 
 

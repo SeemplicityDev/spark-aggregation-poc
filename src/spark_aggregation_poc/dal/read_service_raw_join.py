@@ -22,9 +22,9 @@ class ReadServiceRawJoin:
         print("=== Adding anti-skew optimizations ===")
 
         # Your existing optimizations PLUS anti-skew settings
-        spark.conf.set("spark.executor.heartbeatInterval", "120s")
-        spark.conf.set("spark.network.timeout", "1200s")
-        spark.conf.set("spark.sql.broadcastTimeout", "7200")
+        # spark.conf.set("spark.executor.heartbeatInterval", "120s")
+        # spark.conf.set("spark.network.timeout", "1200s")
+        # spark.conf.set("spark.sql.broadcastTimeout", "7200")
 
         # Anti-skew configurations
         spark.conf.set("spark.sql.adaptive.enabled", "true")

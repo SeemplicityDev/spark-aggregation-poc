@@ -1,6 +1,7 @@
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
+from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.services.aggregation_service import AggregationService
 
@@ -15,9 +16,17 @@ class Factory:
         return ReadServicePrePartition(config=config)
 
     @classmethod
+    def create_read_service_raw_join(cls, config: Config) -> ReadServiceRawJoin:
+        return ReadServiceRawJoin(config=config)
+
+    @classmethod
     def create_write_service(cls, config: Config) -> WriteService:
         return WriteService(config=config)
 
     @classmethod
-    def create_transform_service(cls) -> AggregationService:
+    def create_aggregation_service(cls) -> AggregationService:
         return AggregationService()
+
+    @classmethod
+    def create_aggregation_service_raw_join(cls) -> AggregationServiceRawJoin:
+        return AggregationServiceRawJoin()

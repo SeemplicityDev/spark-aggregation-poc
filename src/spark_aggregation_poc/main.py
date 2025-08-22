@@ -5,9 +5,11 @@ from pyspark.sql import SparkSession, DataFrame
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
+from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
 """
 TODO:
@@ -47,17 +49,19 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         app_context: AppContext = build_app_context(config)
         read_service: ReadService = app_context.read_service
         read_service_pre_partition: ReadServicePrePartition = app_context.read_service_pre_partition
+        read_service_raw_join: ReadServiceRawJoin = app_context.read_service_raw_join
         write_service: WriteService = app_context.write_service
-        transform_service: AggregationService = app_context.transform_service
+        aggregation_service: AggregationService = app_context.aggregation_service
+        aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
 
         from time import time
 
         start = time()
-        df = read_service_pre_partition.read_findings_data(spark=spark)
+        df = read_service_raw_join.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
         df.show()
 
-        # df_transformed: DataFrame = transform_service.aggregate(df)
+        # df_transformed: DataFrame = aggregation_service.aggregate(df)
         # print("\n=== Groups to findings ===")
         # start = time()
         # df_transformed.show(10, truncate=False)

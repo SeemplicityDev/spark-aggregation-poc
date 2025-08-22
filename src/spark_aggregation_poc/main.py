@@ -55,7 +55,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         start = time()
         df = read_service_pre_partition.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
-        df.show(truncate=False)
+        df.show()
 
         # df_transformed: DataFrame = transform_service.aggregate(df)
         # print("\n=== Groups to findings ===")

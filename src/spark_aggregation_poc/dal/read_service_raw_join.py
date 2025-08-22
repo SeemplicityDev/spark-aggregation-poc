@@ -51,32 +51,30 @@ class ReadServiceRawJoin:
 
         raw_query = self.get_join_query()
 
-        # QUICK TEST: Check schema first
-        print("=== Testing query schema ===")
-        test_df = spark.read.jdbc(
+        # Get actual data range first
+        bounds_query = "(SELECT MIN(findings.id) as min_id, MAX(findings.id) as max_id FROM findings WHERE findings.package_name IS NOT NULL) as bounds"
+
+        bounds_df = spark.read.jdbc(
             url=self.postgres_url,
-            table=raw_query,
+            table=bounds_query,
             properties=optimized_properties
-        ).limit(1)
+        )
 
-        print("Available columns:", test_df.columns)
+        bounds_row = bounds_df.collect()[0]
+        actual_min = bounds_row['min_id'] or 1
+        actual_max = bounds_row['max_id'] or 1000000
 
-        if "finding_id" not in test_df.columns:
-            print("❌ finding_id column not found!")
-            print("Query might have SQL syntax error")
-            return test_df
+        print(f"Actual finding_id range: {actual_min} to {actual_max}")
 
-        print("✓ finding_id column exists, proceeding with partitioning...")
-
-        # For large datasets, use partitioning on findings.id
+        # Use actual bounds with more partitions
         df = spark.read.jdbc(
             url=self.postgres_url,
             table=raw_query,
             properties=optimized_properties,
-            column="finding_id",  # Partition on findings.id
-            lowerBound=1,
-            upperBound=10000000,  # Adjust based on your data range
-            numPartitions=16  # More partitions for raw data
+            column="finding_id",
+            lowerBound=actual_min,  # Use actual minimum
+            upperBound=actual_max,  # Use actual maximum
+            numPartitions=32  # Double the partitions
         )
 
         # Immediate optimizations for large raw dataset
@@ -104,3 +102,4 @@ class ReadServiceRawJoin:
             content = f.read()
 
         return content
+

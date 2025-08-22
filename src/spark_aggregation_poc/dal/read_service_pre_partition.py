@@ -30,18 +30,65 @@ class ReadServicePrePartition:
         return result_df
 
     def create_partitioned_findings_view(self, spark: SparkSession):
-        """Create the partitioned_findings temporary view"""
+        """Create the partitioned_findings temporary view with optimizations"""
+
+        print("=== Creating partitioned_findings view with optimizations ===")
+
+        # HARDCODED TEST: Optimized JDBC properties for large table read
+        optimized_properties = self.postgres_properties.copy()
+        optimized_properties.update({
+            "fetchsize": "10000",  # Larger fetch for base table
+            "queryTimeout": "0",  # No query timeout
+            "loginTimeout": "60",  # 60 second login timeout
+            "tcpKeepAlive": "true",  # Keep connections alive
+            "socketTimeout": "0"  # No socket timeout
+        })
+
+        # Adjust partitioning based on your cluster (rd-fleet.xlarge: 4 cores)
+        # More partitions for large base table
+        num_partitions = 8  # 2x cores for I/O heavy base table read
+
         findings_df = spark.read.jdbc(
             url=self.postgres_url,
             table="findings",
-            properties=self.postgres_properties,
+            properties=optimized_properties,  # Use optimized properties
             column="id",
             lowerBound=1,
-            upperBound=1000000,
-            numPartitions=4
+            upperBound=1000000,  # Adjust based on your actual data range
+            numPartitions=num_partitions
         )
 
+        # Cache immediately since this will be used for joins
+        findings_df.cache()
         findings_df.createOrReplaceTempView("partitioned_findings")
+
+        # Verify the partitioning worked and get row count
+        import time
+        start_time = time.time()
+        row_count = findings_df.count()
+        load_time = time.time() - start_time
+
+        print(f"✓ Created partitioned_findings: {row_count} rows in {load_time:.2f}s with {num_partitions} partitions")
+
+        # Log partition distribution using DataFrame operations (no RDD)
+        self.log_findings_partition_distribution(findings_df)
+
+    def log_findings_partition_distribution(self, df: DataFrame):
+        """Log how the findings data is distributed across partitions"""
+        from pyspark.sql.functions import spark_partition_id, count, min as spark_min, max as spark_max
+
+        print("=== Findings Partition Distribution ===")
+
+        partition_stats = df.withColumn("partition_id", spark_partition_id()) \
+            .groupBy("partition_id") \
+            .agg(
+            count("*").alias("row_count"),
+            spark_min("id").alias("min_id"),
+            spark_max("id").alias("max_id")
+        ).orderBy("partition_id")
+
+        print("Base findings partition distribution:")
+        partition_stats.show()
 
 
     def load_supporting_tables(self, spark: SparkSession):

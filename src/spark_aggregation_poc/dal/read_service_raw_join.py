@@ -18,6 +18,26 @@ class ReadServiceRawJoin:
 
         print("=== Reading raw joined data from PostgreSQL ===")
 
+        # Cell 1: Anti-skew optimizations
+        print("=== Adding anti-skew optimizations ===")
+
+        # Your existing optimizations PLUS anti-skew settings
+        spark.conf.set("spark.executor.heartbeatInterval", "120s")
+        spark.conf.set("spark.network.timeout", "1200s")
+        spark.conf.set("spark.sql.broadcastTimeout", "7200")
+
+        # Anti-skew configurations
+        spark.conf.set("spark.sql.adaptive.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", "64MB")  # Lower threshold
+        spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # Smaller partitions
+
+        # More aggressive partitioning
+        spark.conf.set("spark.sql.adaptive.coalescePartitions.minPartitionSize", "32MB")  # Smaller min size
+
+        print("✓ Applied anti-skew optimizations")
+
         # Optimized JDBC properties for large raw dataset
         optimized_properties = self.postgres_properties.copy()
         optimized_properties.update({

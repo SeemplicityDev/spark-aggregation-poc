@@ -49,14 +49,14 @@ class ReadServiceRawJoin:
         )
 
         # Immediate optimizations for large raw dataset
-        # df_optimized = df.repartition(16, "package_name").cache()  # Partition by group key
+        df_optimized = df.repartition(16, "package_name").cache()  # Partition by group key
 
         print("=== Raw data loaded, verifying... ===")
-        row_count = df.count()
+        row_count = df_optimized.count()
         print(f"Raw data rows: {row_count}")
 
         # Show sample
-        df.show(5)
+        df_optimized.show(5)
 
         return df_optimized
 

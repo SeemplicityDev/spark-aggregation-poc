@@ -59,6 +59,11 @@ class ReadServiceRawJoin:
         # Show sample
         df_optimized.show(5)
 
+        # self.test_group_by(df_optimized)
+
+        return df_optimized
+
+    def test_group_by(self, df_optimized):
         # test group by
         result_df = df_optimized.groupBy("package_name").agg(
             coalesce(
@@ -70,7 +75,6 @@ class ReadServiceRawJoin:
         )
         print("Group by package_name")
         result_df.show()
-
         result_df = df_optimized.groupBy("root_cloud_account").agg(
             coalesce(
                 collect_list(
@@ -81,8 +85,6 @@ class ReadServiceRawJoin:
         )
         print("Group by cloud_account")
         result_df.show()
-
-        return df_optimized
 
     def appl_optimized_config(self, spark):
         # Cell 1: Anti-skew optimizations

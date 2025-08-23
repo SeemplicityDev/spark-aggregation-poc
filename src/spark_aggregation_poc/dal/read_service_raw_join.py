@@ -61,7 +61,7 @@ class ReadServiceRawJoin:
 
         # self.test_group_by(df_optimized)
 
-        return df_optimized
+        return df
 
     def test_group_by(self, df_optimized):
         # test group by

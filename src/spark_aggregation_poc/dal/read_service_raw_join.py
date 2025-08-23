@@ -18,36 +18,7 @@ class ReadServiceRawJoin:
 
         print("=== Reading raw joined data from PostgreSQL ===")
 
-        # Cell 1: Anti-skew optimizations
-        print("=== Adding anti-skew optimizations ===")
-
-        # Your existing optimizations PLUS anti-skew settings
-        # spark.conf.set("spark.executor.heartbeatInterval", "120s")
-        # spark.conf.set("spark.network.timeout", "1200s")
-        # spark.conf.set("spark.sql.broadcastTimeout", "7200")
-
-        # Anti-skew configurations
-        spark.conf.set("spark.sql.adaptive.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", "64MB")  # Lower threshold
-        spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # Smaller partitions
-
-        # More aggressive partitioning
-        spark.conf.set("spark.sql.adaptive.coalescePartitions.minPartitionSize", "32MB")  # Smaller min size
-
-        print("✓ Applied anti-skew optimizations")
-
-        # Optimized JDBC properties for large raw dataset
-        optimized_properties = self.postgres_properties.copy()
-        optimized_properties.update({
-            "fetchsize": "20000",  # Larger fetch for raw data
-            "queryTimeout": "0",  # No query timeout
-            "loginTimeout": "120",  # Longer login timeout
-            "tcpKeepAlive": "true",  # Keep connections alive
-            "socketTimeout": "0",  # No socket timeout
-            "batchsize": "20000"  # Larger batch size
-        })
+        optimized_properties = self.appl_optimized_config(spark)
 
         raw_query = self.get_join_query()
 
@@ -78,18 +49,44 @@ class ReadServiceRawJoin:
         )
 
         # Immediate optimizations for large raw dataset
-        df_optimized = df.repartition(16, "package_name").cache()  # Partition by group key
+        # df_optimized = df.repartition(16, "package_name").cache()  # Partition by group key
 
         print("=== Raw data loaded, verifying... ===")
-        row_count = df_optimized.count()
+        row_count = df.count()
         print(f"Raw data rows: {row_count}")
 
         # Show sample
-        df_optimized.show(5)
+        df.show(5)
 
         return df_optimized
 
-
+    def appl_optimized_config(self, spark):
+        # Cell 1: Anti-skew optimizations
+        print("=== Adding anti-skew optimizations ===")
+        # Your existing optimizations PLUS anti-skew settings
+        # spark.conf.set("spark.executor.heartbeatInterval", "120s")
+        # spark.conf.set("spark.network.timeout", "1200s")
+        # spark.conf.set("spark.sql.broadcastTimeout", "7200")
+        # Anti-skew configurations
+        spark.conf.set("spark.sql.adaptive.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+        spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", "64MB")  # Lower threshold
+        spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # Smaller partitions
+        # More aggressive partitioning
+        spark.conf.set("spark.sql.adaptive.coalescePartitions.minPartitionSize", "32MB")  # Smaller min size
+        print("✓ Applied anti-skew optimizations")
+        # Optimized JDBC properties for large raw dataset
+        optimized_properties = self.postgres_properties.copy()
+        optimized_properties.update({
+            "fetchsize": "20000",  # Larger fetch for raw data
+            "queryTimeout": "0",  # No query timeout
+            "loginTimeout": "120",  # Longer login timeout
+            "tcpKeepAlive": "true",  # Keep connections alive
+            "socketTimeout": "0",  # No socket timeout
+            "batchsize": "20000"  # Larger batch size
+        })
+        return optimized_properties
 
     def get_join_query(self):
         # Get the directory where this file is located

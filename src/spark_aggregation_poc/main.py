@@ -5,6 +5,7 @@ from pyspark.sql import SparkSession, DataFrame
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
+from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
@@ -50,6 +51,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         read_service: ReadService = app_context.read_service
         read_service_pre_partition: ReadServicePrePartition = app_context.read_service_pre_partition
         read_service_raw_join: ReadServiceRawJoin = app_context.read_service_raw_join
+        read_service_raw: ReadServiceRaw = app_context.read_service_raw
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
         aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
@@ -57,7 +59,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = read_service_raw_join.read_findings_data(spark=spark)
+        df = read_service_raw.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
         df.show()
 

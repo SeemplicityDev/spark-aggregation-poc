@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from spark_aggregation_poc.config.config import Config, ConfigLoader
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
+from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
 from spark_aggregation_poc.factory.factory import Factory
 from spark_aggregation_poc.dal.read_service import ReadService
@@ -16,6 +17,7 @@ class AppContext:
     read_service: ReadService
     read_service_pre_partition: ReadServicePrePartition
     read_service_raw_join: ReadServiceRawJoin
+    read_service_raw: ReadServiceRaw
     write_service: WriteService
     aggregation_service: AggregationService
     aggregation_service_raw_join: AggregationServiceRawJoin
@@ -28,6 +30,7 @@ def build_app_context(config: Config = None) -> AppContext:
     read_service: ReadService = Factory.create_read_service(config)
     read_service_pre_partition: ReadServicePrePartition = Factory.create_read_service_pre_partition(config)
     read_service_raw_join: ReadServiceRawJoin = Factory.create_read_service_raw_join(config)
+    read_service_raw: ReadServiceRaw = Factory.create_read_service_raw(config)
     write_service: WriteService = Factory.create_write_service(config)
     aggregation_service: AggregationService = Factory.create_aggregation_service()
     aggregation_service_raw_join: AggregationServiceRawJoin = Factory.create_aggregation_service_raw_join()

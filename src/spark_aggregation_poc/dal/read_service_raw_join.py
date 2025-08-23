@@ -1,7 +1,8 @@
 import os
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import spark_partition_id, count, min as spark_min, max as spark_max
+from pyspark.sql.functions import spark_partition_id, count, min as spark_min, max as spark_max, coalesce, collect_list, \
+    when, col, array
 
 from spark_aggregation_poc.config.config import Config
 
@@ -57,6 +58,17 @@ class ReadServiceRawJoin:
 
         # Show sample
         df_optimized.show(5)
+
+        # test group by
+        result_df = df_optimized.groupBy("package_name").agg(
+            coalesce(
+                collect_list(
+                    when(col("aggregation_group_id").isNull(), col("finding_id"))
+                ),
+                array().cast("array<int>")
+            ).alias("finding_ids_without_group")
+        )
+        result_df.show()
 
         return df_optimized
 

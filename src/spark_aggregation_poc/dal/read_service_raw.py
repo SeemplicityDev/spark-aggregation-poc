@@ -15,20 +15,210 @@ class ReadServiceRaw:
         self.postgres_url = config.postgres_url
 
     def read_findings_data(self, spark: SparkSession) -> DataFrame:
-        """Read tables separately based on raw_join_query1.sql structure"""
+        """Read tables separately using actual min/max values for partitioning"""
 
-        print("=== Reading tables separately based on raw_join_query1.sql ===")
+        print("=== Reading tables separately with actual min/max bounds ===")
 
-        (aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df,
-         findings_additional_data_df, findings_df, findings_info_df, findings_scores_df,
-         plain_resources_df, statuses_df, user_status_df) = self.read_tables_separately(spark)
+        # Import required functions
+        from pyspark.sql.functions import col, broadcast
+
+        # Helper function to get actual min/max for partitioning
+        def get_min_max_bounds(table_name: str, column_name: str):
+            bounds_query = f"SELECT MIN({column_name}) as min_val, MAX({column_name}) as max_val FROM {table_name}"
+            bounds_df = spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({bounds_query}) as bounds",
+                properties=self.postgres_properties
+            )
+            bounds = bounds_df.collect()[0]
+            min_val = bounds['min_val'] if bounds['min_val'] is not None else 1
+            max_val = bounds['max_val'] if bounds['max_val'] is not None else 1000000
+            print(f"  {table_name}.{column_name}: {min_val:,} to {max_val:,}")
+            return min_val, max_val
+
+        # STEP 1: Read SMALL tables first (no partitioning needed)
+        print("Reading small tables...")
+
+        statuses_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="statuses",
+            properties=self.postgres_properties
+        ).cache()
+
+        aggregation_groups_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="aggregation_groups",
+            properties=self.postgres_properties
+        ).cache()
+
+        aggregation_rules_excluder_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="aggregation_rules_findings_excluder",
+            properties=self.postgres_properties
+        ).cache()
+
+        print("✓ Small tables loaded and cached")
+
+        # STEP 2: Read MEDIUM tables with actual bounds
+        print("Reading medium tables with actual bounds...")
+
+        # Get actual bounds for medium tables
+        sla_min, sla_max = get_min_max_bounds("finding_sla_rule_connections", "finding_id")
+        resources_min, resources_max = get_min_max_bounds("plain_resources", "id")
+
+        finding_sla_connections_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="finding_sla_rule_connections",
+            properties=self.postgres_properties,
+            column="finding_id",
+            lowerBound=sla_min,
+            upperBound=sla_max,
+            numPartitions=4
+        )
+
+        plain_resources_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="plain_resources",
+            properties=self.postgres_properties,
+            column="id",
+            lowerBound=resources_min,
+            upperBound=resources_max,
+            numPartitions=4
+        ).cache()  # Cache for reuse
+
+        print("✓ Medium tables loaded")
+
+        # STEP 3: Read LARGE tables with actual bounds
+        print("Reading large tables with actual bounds...")
+
+        # Get actual bounds for large tables
+        findings_min, findings_max = get_min_max_bounds("findings", "id")
+        scores_min, scores_max = get_min_max_bounds("findings_scores", "finding_id")
+        status_min, status_max = get_min_max_bounds("user_status", "id")
+        additional_min, additional_max = get_min_max_bounds("findings_additional_data", "finding_id")
+        info_min, info_max = get_min_max_bounds("findings_info", "id")
+
+        # Main findings table - filter early
+        findings_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="findings",
+            properties=self.postgres_properties,
+            column="id",
+            lowerBound=findings_min,
+            upperBound=findings_max,
+            numPartitions=8
+        ).filter(col("package_name").isNotNull())  # Apply WHERE condition early
+
+        findings_scores_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="findings_scores",
+            properties=self.postgres_properties,
+            column="finding_id",
+            lowerBound=scores_min,
+            upperBound=scores_max,
+            numPartitions=6
+        )
+
+        user_status_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="user_status",
+            properties=self.postgres_properties,
+            column="id",
+            lowerBound=status_min,
+            upperBound=status_max,
+            numPartitions=6
+        )
+
+        findings_additional_data_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="findings_additional_data",
+            properties=self.postgres_properties,
+            column="finding_id",
+            lowerBound=additional_min,
+            upperBound=additional_max,
+            numPartitions=6
+        )
+
+        findings_info_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="findings_info",
+            properties=self.postgres_properties,
+            column="id",
+            lowerBound=info_min,
+            upperBound=info_max,
+            numPartitions=6
+        )
+
+        print("✓ Large tables loaded")
 
         # STEP 4: Perform joins in Spark following raw_join_query1.sql order
         print("Performing joins in Spark following raw_join_query1.sql structure...")
 
-        result_df = self.join_tables(aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df,
-                                     findings_additional_data_df, findings_df, findings_info_df, findings_scores_df,
-                                     plain_resources_df, statuses_df, user_status_df)
+        # Start with findings (main table)
+        result_df = findings_df
+
+        # LEFT OUTER JOIN finding_sla_rule_connections
+        result_df = result_df.join(
+            finding_sla_connections_df,
+            findings_df.id == finding_sla_connections_df.finding_id,
+            "left"
+        )
+
+        # JOIN plain_resources (INNER JOIN - broadcast small/medium table)
+        result_df = result_df.join(
+            broadcast(plain_resources_df),
+            findings_df.main_resource_id == plain_resources_df.id,
+            "inner"
+        )
+
+        # JOIN findings_scores (INNER JOIN)
+        result_df = result_df.join(
+            findings_scores_df,
+            findings_df.id == findings_scores_df.finding_id,
+            "inner"
+        )
+
+        # JOIN user_status (INNER JOIN)
+        result_df = result_df.join(
+            user_status_df,
+            findings_df.id == user_status_df.id,
+            "inner"
+        )
+
+        # LEFT OUTER JOIN findings_additional_data
+        result_df = result_df.join(
+            findings_additional_data_df,
+            findings_df.id == findings_additional_data_df.finding_id,
+            "left"
+        )
+
+        # JOIN statuses (INNER JOIN - broadcast small table)
+        result_df = result_df.join(
+            broadcast(statuses_df),
+            user_status_df.actual_status_key == statuses_df.key,
+            "inner"
+        )
+
+        # LEFT OUTER JOIN aggregation_groups (broadcast small table)
+        result_df = result_df.join(
+            broadcast(aggregation_groups_df),
+            findings_df.aggregation_group_id == aggregation_groups_df.id,
+            "left"
+        )
+
+        # LEFT OUTER JOIN findings_info
+        result_df = result_df.join(
+            findings_info_df,
+            findings_df.id == findings_info_df.id,
+            "left"
+        )
+
+        # LEFT OUTER JOIN aggregation_rules_findings_excluder (broadcast small table)
+        result_df = result_df.join(
+            broadcast(aggregation_rules_excluder_df),
+            findings_df.id == aggregation_rules_excluder_df.finding_id,
+            "left"
+        )
 
         # STEP 5: Select columns exactly as in raw_join_query1.sql
         final_df = result_df.select(
@@ -56,159 +246,6 @@ class ReadServiceRaw:
         print(f"Final result count: {final_df.count():,} rows")
 
         return final_df
-
-    def read_tables_separately(self, spark):
-        # Import required functions
-        from pyspark.sql.functions import col
-        # STEP 1: Read SMALL tables first (no partitioning needed)
-        print("Reading small tables...")
-        statuses_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="statuses",
-            properties=self.postgres_properties
-        ).cache()
-        aggregation_groups_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="aggregation_groups",
-            properties=self.postgres_properties
-        ).cache()
-        aggregation_rules_excluder_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="aggregation_rules_findings_excluder",
-            properties=self.postgres_properties
-        ).cache()
-        print("✓ Small tables loaded and cached")
-        # STEP 2: Read MEDIUM tables (light partitioning)
-        print("Reading medium tables...")
-        finding_sla_connections_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="finding_sla_rule_connections",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=4
-        )
-        plain_resources_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="plain_resources",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=1,
-            upperBound=1000000,
-            numPartitions=4
-        ).cache()  # Cache for reuse
-        print("✓ Medium tables loaded")
-        # STEP 3: Read LARGE tables (aggressive partitioning)
-        print("Reading large tables...")
-        # Main findings table - filter early
-        findings_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=8
-        ).filter(col("package_name").isNotNull())  # Apply WHERE condition early
-        findings_scores_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_scores",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=6
-        )
-        user_status_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="user_status",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=6
-        )
-        findings_additional_data_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_additional_data",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=6
-        )
-        findings_info_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_info",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=1,
-            upperBound=10000000,
-            numPartitions=6
-        )
-        return aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df, findings_additional_data_df, findings_df, findings_info_df, findings_scores_df, plain_resources_df, statuses_df, user_status_df
-
-    def join_tables(self, aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df,
-                    findings_additional_data_df, findings_df, findings_info_df, findings_scores_df, plain_resources_df,
-                    statuses_df, user_status_df):
-        # Start with findings (main table)
-        result_df = findings_df
-        # LEFT OUTER JOIN finding_sla_rule_connections
-        result_df = result_df.join(
-            finding_sla_connections_df,
-            findings_df.id == finding_sla_connections_df.finding_id,
-            "left"
-        )
-        # JOIN plain_resources (INNER JOIN - broadcast small/medium table)
-        result_df = result_df.join(
-            broadcast(plain_resources_df),
-            findings_df.main_resource_id == plain_resources_df.id,
-            "inner"
-        )
-        # JOIN findings_scores (INNER JOIN)
-        result_df = result_df.join(
-            findings_scores_df,
-            findings_df.id == findings_scores_df.finding_id,
-            "inner"
-        )
-        # JOIN user_status (INNER JOIN)
-        result_df = result_df.join(
-            user_status_df,
-            findings_df.id == user_status_df.id,
-            "inner"
-        )
-        # LEFT OUTER JOIN findings_additional_data
-        result_df = result_df.join(
-            findings_additional_data_df,
-            findings_df.id == findings_additional_data_df.finding_id,
-            "left"
-        )
-        # JOIN statuses (INNER JOIN - broadcast small table)
-        result_df = result_df.join(
-            broadcast(statuses_df),
-            user_status_df.actual_status_key == statuses_df.key,
-            "inner"
-        )
-        # LEFT OUTER JOIN aggregation_groups (broadcast small table)
-        result_df = result_df.join(
-            broadcast(aggregation_groups_df),
-            findings_df.aggregation_group_id == aggregation_groups_df.id,
-            "left"
-        )
-        # LEFT OUTER JOIN findings_info
-        result_df = result_df.join(
-            findings_info_df,
-            findings_df.id == findings_info_df.id,
-            "left"
-        )
-        # LEFT OUTER JOIN aggregation_rules_findings_excluder (broadcast small table)
-        result_df = result_df.join(
-            broadcast(aggregation_rules_excluder_df),
-            findings_df.id == aggregation_rules_excluder_df.finding_id,
-            "left"
-        )
-        return result_df
 
     def test_group_by(self, df_optimized):
         # test group by

@@ -34,4 +34,4 @@ def build_app_context(config: Config = None) -> AppContext:
     write_service: WriteService = Factory.create_write_service(config)
     aggregation_service: AggregationService = Factory.create_aggregation_service()
     aggregation_service_raw_join: AggregationServiceRawJoin = Factory.create_aggregation_service_raw_join()
-    return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, write_service, aggregation_service, aggregation_service_raw_join)
+    return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw, write_service, aggregation_service, aggregation_service_raw_join)

@@ -1,8 +1,8 @@
 import os
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import spark_partition_id, count, min as spark_min, max as spark_max, coalesce, collect_list, \
-    when, col, array
+from pyspark.sql.functions import coalesce, collect_list, \
+    when, col, array, broadcast
 
 from spark_aggregation_poc.config.config import Config
 
@@ -14,7 +14,7 @@ class ReadServiceRaw:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data_separate_tables(self, spark: SparkSession) -> DataFrame:
+    def read_findings_data(self, spark: SparkSession) -> DataFrame:
         """Read tables separately based on raw_join_query1.sql structure"""
 
         print("=== Reading tables separately based on raw_join_query1.sql ===")
@@ -59,7 +59,7 @@ class ReadServiceRaw:
 
     def read_tables_separately(self, spark):
         # Import required functions
-        from pyspark.sql.functions import col, broadcast
+        from pyspark.sql.functions import col
         # STEP 1: Read SMALL tables first (no partitioning needed)
         print("Reading small tables...")
         statuses_df = spark.read.jdbc(

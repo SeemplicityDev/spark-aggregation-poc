@@ -68,6 +68,18 @@ class ReadServiceRawJoin:
                 array().cast("array<int>")
             ).alias("finding_ids_without_group")
         )
+        print("Group by package_name")
+        result_df.show()
+
+        result_df = df_optimized.groupBy("cloud_account").agg(
+            coalesce(
+                collect_list(
+                    when(col("aggregation_group_id").isNull(), col("finding_id"))
+                ),
+                array().cast("array<int>")
+            ).alias("finding_ids_without_group")
+        )
+        print("Group by cloud_account")
         result_df.show()
 
         return df_optimized

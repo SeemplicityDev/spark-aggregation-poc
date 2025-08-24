@@ -59,7 +59,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = read_service_raw.read_findings_data(spark=spark)
+        df = read_service_raw_join.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
         df.show()
 

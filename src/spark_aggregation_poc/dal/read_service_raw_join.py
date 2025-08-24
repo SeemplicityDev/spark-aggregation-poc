@@ -15,6 +15,40 @@ class ReadServiceRawJoin:
         self.postgres_url = config.postgres_url
 
     def read_findings_data(self, spark: SparkSession) -> DataFrame:
+        """Use hash-based partitioning for even distribution"""
+
+        print("=== Reading with hash-based partitioning ===")
+
+        raw_query = self.get_join_query()
+        num_partitions = 32
+
+        partition_dfs = []
+
+        for i in range(num_partitions):
+            print(f"Reading hash partition {i + 1}/{num_partitions}")
+
+            # Use modulo hash for partitioning
+            hash_partition_query = f"""
+            SELECT * FROM ({raw_query}) as base_query 
+            WHERE ABS(HASHTEXT(finding_id::text)) % {num_partitions} = {i}
+            """
+
+            partition_df = spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({hash_partition_query}) as hash_partition_{i}",
+                properties=self.postgres_properties
+            )
+
+            partition_dfs.append(partition_df)
+
+        # Union all partitions
+        final_df = partition_dfs[0]
+        for df in partition_dfs[1:]:
+            final_df = final_df.union(df)
+
+        return final_df
+
+    def read_findings_data_bak(self, spark: SparkSession) -> DataFrame:
         """Read raw joined data without GROUP BY for Spark-side aggregation"""
 
         print("=== Reading raw joined data from PostgreSQL ===")

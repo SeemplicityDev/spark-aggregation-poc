@@ -15,37 +15,75 @@ class ReadServiceRawJoin:
         self.postgres_url = config.postgres_url
 
     def read_findings_data(self, spark: SparkSession) -> DataFrame:
-        """Use hash-based partitioning for even distribution"""
+        """Hash-based partitioning with all joins from raw_join_query1.sql"""
 
-        print("=== Reading with hash-based partitioning ===")
+        print("=== Reading with optimized hash-based partitioning (all joins) ===")
 
-        raw_query = self.get_join_query()
-        num_partitions = 32
-
+        num_partitions = 16  # Reduced to ease PostgreSQL load
         partition_dfs = []
 
         for i in range(num_partitions):
             print(f"Reading hash partition {i + 1}/{num_partitions}")
 
-            # Use modulo hash for partitioning
-            hash_partition_query = f"""
-            SELECT * FROM ({raw_query}) as base_query 
-            WHERE ABS(HASHTEXT(finding_id::text)) % {num_partitions} = {i}
+            # Hash at the findings table level, then do all joins from raw_join_query1.sql
+            optimized_hash_query = f"""
+            SELECT 
+                findings.id as finding_id,
+                findings.package_name,
+                findings.main_resource_id,
+                findings.aggregation_group_id,
+                finding_sla_rule_connections.finding_id as sla_connection_id,
+                plain_resources.id as resource_id,
+                plain_resources.cloud_account as root_cloud_account,
+                plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
+                findings_scores.finding_id as score_finding_id,
+                user_status.id as user_status_id,
+                user_status.actual_status_key,
+                findings_additional_data.finding_id as additional_data_id,
+                statuses.key as status_key,
+                aggregation_groups.id as existing_group_id,
+                aggregation_groups.main_finding_id as existing_main_finding_id,
+                aggregation_groups.group_identifier as existing_group_identifier,
+                aggregation_groups.is_locked,
+                findings_info.id as findings_info_id
+            FROM findings
+            LEFT OUTER JOIN finding_sla_rule_connections ON
+                findings.id = finding_sla_rule_connections.finding_id
+            JOIN plain_resources ON
+                findings.main_resource_id = plain_resources.id
+            JOIN findings_scores ON
+                findings.id = findings_scores.finding_id
+            JOIN user_status ON
+                user_status.id = findings.id
+            LEFT OUTER JOIN findings_additional_data ON
+                findings.id = findings_additional_data.finding_id
+            JOIN statuses ON
+                statuses.key = user_status.actual_status_key
+            LEFT OUTER JOIN aggregation_groups ON
+                findings.aggregation_group_id = aggregation_groups.id
+            LEFT OUTER JOIN findings_info ON
+                findings_info.id = findings.id
+            LEFT OUTER JOIN aggregation_rules_findings_excluder ON
+                findings.id = aggregation_rules_findings_excluder.finding_id
+            WHERE findings.package_name IS NOT NULL
+            AND ABS(HASHTEXT(findings.id::text)) % {num_partitions} = {i}
             """
 
             partition_df = spark.read.jdbc(
                 url=self.postgres_url,
-                table=f"({hash_partition_query}) as hash_partition_{i}",
+                table=f"({optimized_hash_query}) as hash_partition_{i}",
                 properties=self.postgres_properties
             )
 
             partition_dfs.append(partition_df)
 
         # Union all partitions
+        print("Combining all hash partitions...")
         final_df = partition_dfs[0]
         for df in partition_dfs[1:]:
             final_df = final_df.union(df)
 
+        print(f"✓ Hash-based partitioning complete with {num_partitions} partitions")
         return final_df
 
     def read_findings_data_bak(self, spark: SparkSession) -> DataFrame:

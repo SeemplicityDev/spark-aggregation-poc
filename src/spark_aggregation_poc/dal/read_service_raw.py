@@ -84,25 +84,28 @@ class ReadServiceRaw:
             table="aggregation_rules_findings_excluder",
             properties=self.postgres_properties
         ).cache()
-        aggregation_rules_excluder_df.show(5)
-        # print("✓ Small tables loaded and cached")
-        # # STEP 2: Read MEDIUM tables with hash partitioning
-        # print("Reading medium tables with hash partitioning...")
-        # # Medium tables - light hash partitioning
-        # num_medium_partitions = 4
-        # # Finding SLA connections with hash partitioning
-        # sla_partitions = []
-        # for i in range(num_medium_partitions):
-        #     sla_query = f"""
-        #     SELECT * FROM finding_sla_rule_connections
-        #     WHERE ABS(HASHTEXT(finding_id::text)) % {num_medium_partitions} = {i}
-        #     """
-        #     sla_partition = spark.read.jdbc(
-        #         url=self.postgres_url,
-        #         table=f"({sla_query}) as sla_partition_{i}",
-        #         properties=self.postgres_properties
-        #     )
-        #     sla_partitions.append(sla_partition)
+
+        print("✓ Small tables loaded and cached")
+        # STEP 2: Read MEDIUM tables with hash partitioning
+        print("Reading medium tables with hash partitioning...")
+        # Medium tables - light hash partitioning
+        num_medium_partitions = 4
+        # Finding SLA connections with hash partitioning
+        sla_partitions = []
+        for i in range(num_medium_partitions):
+            sla_query = f"""
+            SELECT * FROM finding_sla_rule_connections
+            WHERE ABS(HASHTEXT(finding_id::text)) % {num_medium_partitions} = {i}
+            """
+            sla_partition = spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({sla_query}) as sla_partition_{i}",
+                properties=self.postgres_properties
+            )
+            sla_partitions.append(sla_partition)
+
+        finding_sla_connections_df = sla_partitions[0]
+        finding_sla_connections_df.show(5)
         # # Union SLA partitions
         # finding_sla_connections_df = sla_partitions[0]
         # for df in sla_partitions[1:]:

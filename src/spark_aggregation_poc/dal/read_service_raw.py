@@ -72,12 +72,13 @@ class ReadServiceRaw:
             table="statuses",
             properties=self.postgres_properties
         ).cache()
-        statuses_df.show(5)
-        # aggregation_groups_df = spark.read.jdbc(
-        #     url=self.postgres_url,
-        #     table="aggregation_groups",
-        #     properties=self.postgres_properties
-        # ).cache()
+
+        aggregation_groups_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="aggregation_groups",
+            properties=self.postgres_properties
+        ).cache()
+        aggregation_groups_df.show(5)
         # aggregation_rules_excluder_df = spark.read.jdbc(
         #     url=self.postgres_url,
         #     table="aggregation_rules_findings_excluder",

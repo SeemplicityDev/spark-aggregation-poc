@@ -72,46 +72,47 @@ class ReadServiceRaw:
             table="statuses",
             properties=self.postgres_properties
         ).cache()
-        aggregation_groups_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="aggregation_groups",
-            properties=self.postgres_properties
-        ).cache()
-        aggregation_rules_excluder_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="aggregation_rules_findings_excluder",
-            properties=self.postgres_properties
-        ).cache()
-        print("✓ Small tables loaded and cached")
-        # STEP 2: Read MEDIUM tables with hash partitioning
-        print("Reading medium tables with hash partitioning...")
-        # Medium tables - light hash partitioning
-        num_medium_partitions = 4
-        # Finding SLA connections with hash partitioning
-        sla_partitions = []
-        for i in range(num_medium_partitions):
-            sla_query = f"""
-            SELECT * FROM finding_sla_rule_connections 
-            WHERE ABS(HASHTEXT(finding_id::text)) % {num_medium_partitions} = {i}
-            """
-            sla_partition = spark.read.jdbc(
-                url=self.postgres_url,
-                table=f"({sla_query}) as sla_partition_{i}",
-                properties=self.postgres_properties
-            )
-            sla_partitions.append(sla_partition)
-        # Union SLA partitions
-        finding_sla_connections_df = sla_partitions[0]
-        for df in sla_partitions[1:]:
-            finding_sla_connections_df = finding_sla_connections_df.union(df)
-        # Plain resources - can use regular partitioning as it's medium size
-        plain_resources_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="plain_resources",
-            properties=self.postgres_properties
-        ).cache()  # Cache for reuse since it's medium size
-        print("plain_resources loaded:")
-        plain_resources_df.show(5)
+        statuses_df.show(5)
+        # aggregation_groups_df = spark.read.jdbc(
+        #     url=self.postgres_url,
+        #     table="aggregation_groups",
+        #     properties=self.postgres_properties
+        # ).cache()
+        # aggregation_rules_excluder_df = spark.read.jdbc(
+        #     url=self.postgres_url,
+        #     table="aggregation_rules_findings_excluder",
+        #     properties=self.postgres_properties
+        # ).cache()
+        # print("✓ Small tables loaded and cached")
+        # # STEP 2: Read MEDIUM tables with hash partitioning
+        # print("Reading medium tables with hash partitioning...")
+        # # Medium tables - light hash partitioning
+        # num_medium_partitions = 4
+        # # Finding SLA connections with hash partitioning
+        # sla_partitions = []
+        # for i in range(num_medium_partitions):
+        #     sla_query = f"""
+        #     SELECT * FROM finding_sla_rule_connections
+        #     WHERE ABS(HASHTEXT(finding_id::text)) % {num_medium_partitions} = {i}
+        #     """
+        #     sla_partition = spark.read.jdbc(
+        #         url=self.postgres_url,
+        #         table=f"({sla_query}) as sla_partition_{i}",
+        #         properties=self.postgres_properties
+        #     )
+        #     sla_partitions.append(sla_partition)
+        # # Union SLA partitions
+        # finding_sla_connections_df = sla_partitions[0]
+        # for df in sla_partitions[1:]:
+        #     finding_sla_connections_df = finding_sla_connections_df.union(df)
+        # # Plain resources - can use regular partitioning as it's medium size
+        # plain_resources_df = spark.read.jdbc(
+        #     url=self.postgres_url,
+        #     table="plain_resources",
+        #     properties=self.postgres_properties
+        # ).cache()  # Cache for reuse since it's medium size
+        # print("plain_resources loaded:")
+        # plain_resources_df.show(5)
 
         print("✓ Medium tables loaded")
 

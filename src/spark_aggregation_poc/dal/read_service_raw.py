@@ -15,26 +15,12 @@ class ReadServiceRaw:
         self.postgres_url = config.postgres_url
 
     def read_findings_data(self, spark: SparkSession) -> DataFrame:
-        """Read tables separately using actual min/max values for partitioning"""
+        """Read tables separately using hash-based partitioning for large tables"""
 
-        print("=== Reading tables separately with actual min/max bounds ===")
+        print("=== Reading tables separately with hash-based partitioning for large tables ===")
 
         # Import required functions
         from pyspark.sql.functions import col, broadcast
-
-        # Helper function to get actual min/max for partitioning
-        def get_min_max_bounds(table_name: str, column_name: str):
-            bounds_query = f"SELECT MIN({column_name}) as min_val, MAX({column_name}) as max_val FROM {table_name}"
-            bounds_df = spark.read.jdbc(
-                url=self.postgres_url,
-                table=f"({bounds_query}) as bounds",
-                properties=self.postgres_properties
-            )
-            bounds = bounds_df.collect()[0]
-            min_val = bounds['min_val'] if bounds['min_val'] is not None else 1
-            max_val = bounds['max_val'] if bounds['max_val'] is not None else 1000000
-            print(f"  {table_name}.{column_name}: {min_val:,} to {max_val:,}")
-            return min_val, max_val
 
         # STEP 1: Read SMALL tables first (no partitioning needed)
         print("Reading small tables...")
@@ -59,97 +45,110 @@ class ReadServiceRaw:
 
         print("✓ Small tables loaded and cached")
 
-        # STEP 2: Read MEDIUM tables with actual bounds
-        print("Reading medium tables with actual bounds...")
+        # STEP 2: Read MEDIUM tables with hash partitioning
+        print("Reading medium tables with hash partitioning...")
 
-        # Get actual bounds for medium tables
-        sla_min, sla_max = get_min_max_bounds("finding_sla_rule_connections", "finding_id")
-        resources_min, resources_max = get_min_max_bounds("plain_resources", "id")
+        # Medium tables - light hash partitioning
+        num_medium_partitions = 4
 
-        finding_sla_connections_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="finding_sla_rule_connections",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=sla_min,
-            upperBound=sla_max,
-            numPartitions=4
-        )
+        # Finding SLA connections with hash partitioning
+        sla_partitions = []
+        for i in range(num_medium_partitions):
+            sla_query = f"""
+            SELECT * FROM finding_sla_rule_connections 
+            WHERE ABS(HASHTEXT(finding_id::text)) % {num_medium_partitions} = {i}
+            """
+            sla_partition = spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({sla_query}) as sla_partition_{i}",
+                properties=self.postgres_properties
+            )
+            sla_partitions.append(sla_partition)
 
+        # Union SLA partitions
+        finding_sla_connections_df = sla_partitions[0]
+        for df in sla_partitions[1:]:
+            finding_sla_connections_df = finding_sla_connections_df.union(df)
+
+        # Plain resources - can use regular partitioning as it's medium size
         plain_resources_df = spark.read.jdbc(
             url=self.postgres_url,
             table="plain_resources",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=resources_min,
-            upperBound=resources_max,
-            numPartitions=4
-        ).cache()  # Cache for reuse
+            properties=self.postgres_properties
+        ).cache()  # Cache for reuse since it's medium size
 
         print("✓ Medium tables loaded")
 
-        # STEP 3: Read LARGE tables with actual bounds
-        print("Reading large tables with actual bounds...")
+        # STEP 3: Read LARGE tables with hash-based partitioning
+        print("Reading large tables with hash-based partitioning...")
 
-        # Get actual bounds for large tables
-        findings_min, findings_max = get_min_max_bounds("findings", "id")
-        scores_min, scores_max = get_min_max_bounds("findings_scores", "finding_id")
-        status_min, status_max = get_min_max_bounds("user_status", "id")
-        additional_min, additional_max = get_min_max_bounds("findings_additional_data", "finding_id")
-        info_min, info_max = get_min_max_bounds("findings_info", "id")
+        num_large_partitions = 8
 
-        # Main findings table - filter early
-        findings_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=findings_min,
-            upperBound=findings_max,
-            numPartitions=8
-        ).filter(col("package_name").isNotNull())  # Apply WHERE condition early
+        # Hash-based partitioning helper function
+        def read_table_with_hash_partitioning(table_name: str, partition_column: str, num_partitions: int):
+            print(f"  Reading {table_name} with {num_partitions} hash partitions...")
+            partitions = []
 
-        findings_scores_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_scores",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=scores_min,
-            upperBound=scores_max,
-            numPartitions=6
+            for i in range(num_partitions):
+                hash_query = f"""
+                SELECT * FROM {table_name} 
+                WHERE ABS(HASHTEXT({partition_column}::text)) % {num_partitions} = {i}
+                """
+
+                partition_df = spark.read.jdbc(
+                    url=self.postgres_url,
+                    table=f"({hash_query}) as {table_name}_hash_partition_{i}",
+                    properties=self.postgres_properties
+                )
+                partitions.append(partition_df)
+
+            # Union all partitions
+            result_df = partitions[0]
+            for df in partitions[1:]:
+                result_df = result_df.union(df)
+
+            return result_df
+
+        # Main findings table with hash partitioning and early filtering
+        print("  Reading findings table...")
+        findings_partitions = []
+        for i in range(num_large_partitions):
+            findings_query = f"""
+            SELECT * FROM findings 
+            WHERE package_name IS NOT NULL
+            AND ABS(HASHTEXT(id::text)) % {num_large_partitions} = {i}
+            """
+
+            findings_partition = spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({findings_query}) as findings_hash_partition_{i}",
+                properties=self.postgres_properties
+            )
+            findings_partitions.append(findings_partition)
+
+        # Union findings partitions
+        findings_df = findings_partitions[0]
+        for df in findings_partitions[1:]:
+            findings_df = findings_df.union(df)
+
+        # Other large tables with hash partitioning
+        findings_scores_df = read_table_with_hash_partitioning(
+            "findings_scores", "finding_id", num_large_partitions
         )
 
-        user_status_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="user_status",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=status_min,
-            upperBound=status_max,
-            numPartitions=6
+        user_status_df = read_table_with_hash_partitioning(
+            "user_status", "id", num_large_partitions
         )
 
-        findings_additional_data_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_additional_data",
-            properties=self.postgres_properties,
-            column="finding_id",
-            lowerBound=additional_min,
-            upperBound=additional_max,
-            numPartitions=6
+        findings_additional_data_df = read_table_with_hash_partitioning(
+            "findings_additional_data", "finding_id", num_large_partitions
         )
 
-        findings_info_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table="findings_info",
-            properties=self.postgres_properties,
-            column="id",
-            lowerBound=info_min,
-            upperBound=info_max,
-            numPartitions=6
+        findings_info_df = read_table_with_hash_partitioning(
+            "findings_info", "id", num_large_partitions
         )
 
-        print("✓ Large tables loaded")
+        print("✓ Large tables loaded with hash partitioning")
 
         # STEP 4: Perform joins in Spark following raw_join_query1.sql order
         print("Performing joins in Spark following raw_join_query1.sql structure...")
@@ -246,6 +245,7 @@ class ReadServiceRaw:
         print(f"Final result count: {final_df.count():,} rows")
 
         return final_df
+
 
     def test_group_by(self, df_optimized):
         # test group by

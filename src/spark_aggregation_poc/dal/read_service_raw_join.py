@@ -14,7 +14,7 @@ class ReadServiceRawJoin:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession, batch_size: int = 100000) -> DataFrame:
+    def read_findings_data(self, spark: SparkSession, batch_size: int = 200000) -> DataFrame:
         """Read data using PostgreSQL join query in batches to avoid disk space issues"""
 
         print("=== Reading data using PostgreSQL join query in batches ===")

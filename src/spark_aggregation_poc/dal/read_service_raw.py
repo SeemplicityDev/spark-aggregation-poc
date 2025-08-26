@@ -28,15 +28,15 @@ class ReadServiceRaw:
 
         findings_additional_data_df, findings_df, findings_info_df, findings_scores_df, user_status_df = self.read_large_tables(
             spark)
-        print("findings_df")
-        return findings_df
 
         # # STEP 4: Perform joins in Spark following raw_join_query1.sql order
         # print("Performing joins in Spark following raw_join_query1.sql structure...")
-        #
-        # result_df = self.join_tables(aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df,
-        #                              findings_additional_data_df, findings_df, findings_info_df, findings_scores_df,
-        #                              plain_resources_df, statuses_df, user_status_df)
+
+        result_df = self.join_tables(aggregation_groups_df, aggregation_rules_excluder_df, finding_sla_connections_df,
+                                     findings_additional_data_df, findings_df, findings_info_df, findings_scores_df,
+                                     plain_resources_df, statuses_df, user_status_df)
+        print("joined result_df")
+        return result_df
 
         # # STEP 5: Select columns exactly as in raw_join_query1.sql
         # final_df = result_df.select(

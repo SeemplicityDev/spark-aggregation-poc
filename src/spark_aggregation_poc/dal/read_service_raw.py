@@ -105,19 +105,20 @@ class ReadServiceRaw:
             sla_partitions.append(sla_partition)
 
         finding_sla_connections_df = sla_partitions[0]
+        print("sla_rule_connections:")
         finding_sla_connections_df.show(5)
-        # # Union SLA partitions
-        # finding_sla_connections_df = sla_partitions[0]
-        # for df in sla_partitions[1:]:
-        #     finding_sla_connections_df = finding_sla_connections_df.union(df)
-        # # Plain resources - can use regular partitioning as it's medium size
-        # plain_resources_df = spark.read.jdbc(
-        #     url=self.postgres_url,
-        #     table="plain_resources",
-        #     properties=self.postgres_properties
-        # ).cache()  # Cache for reuse since it's medium size
-        # print("plain_resources loaded:")
-        # plain_resources_df.show(5)
+        # Union SLA partitions
+        finding_sla_connections_df = sla_partitions[0]
+        for df in sla_partitions[1:]:
+            finding_sla_connections_df = finding_sla_connections_df.union(df)
+        # Plain resources - can use regular partitioning as it's medium size
+        plain_resources_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table="plain_resources",
+            properties=self.postgres_properties
+        ).cache()  # Cache for reuse since it's medium size
+        print("plain_resources loaded:")
+        plain_resources_df.show(5)
 
         print("✓ Medium tables loaded")
 

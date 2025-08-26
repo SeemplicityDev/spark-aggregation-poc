@@ -127,9 +127,9 @@ class ReadServiceRaw:
         max_id = bounds['max_id'] if bounds['max_id'] is not None else 100000
         return min_id, max_id
 
-    def read_table_in_batches(self, spark, table_name, id_column, batch_size, where_clause="", max_batches=50):
-        """Read table in sequential batches"""
-        print(f"  Reading {table_name} in sequential batches...")
+    def read_table_in_batches(self, spark, table_name, id_column, batch_size, where_clause=""):
+        """Read table in batches without arbitrary limits"""
+        print(f"  Reading {table_name} with gap-aware batching...")
 
         # Get the actual bounds
         min_id, max_id = self.get_table_bounds(spark, table_name, id_column)
@@ -138,8 +138,11 @@ class ReadServiceRaw:
         batches = []
         current_lower = min_id
         batch_num = 1
+        consecutive_empty_batches = 0
+        max_consecutive_empty = 10  # Only limit consecutive empty batches
+        gap_skip_size = batch_size * 50
 
-        while current_lower <= max_id and batch_num <= max_batches:
+        while current_lower <= max_id:  # No max_batches limit!
             current_upper = min(current_lower + batch_size - 1, max_id)
 
             print(f"    Reading batch {batch_num}: {id_column} {current_lower:,} to {current_upper:,}")
@@ -160,21 +163,61 @@ class ReadServiceRaw:
                     properties=self.postgres_properties
                 )
 
-                # Count rows in this batch
                 batch_count = batch_df.count()
                 print(f"      Batch {batch_num} loaded: {batch_count:,} rows")
 
                 if batch_count > 0:
                     batches.append(batch_df)
+                    consecutive_empty_batches = 0
+                    current_lower = current_upper + 1
+                else:
+                    consecutive_empty_batches += 1
+                    print(f"      Consecutive empty batches: {consecutive_empty_batches}")
+
+                    if consecutive_empty_batches >= max_consecutive_empty:
+                        print(f"      Skipping ahead by {gap_skip_size:,} IDs...")
+                        current_lower = current_upper + gap_skip_size
+                        consecutive_empty_batches = 0
+                    else:
+                        current_lower = current_upper + 1
 
             except Exception as e:
                 print(f"      Error reading batch {batch_num}: {e}")
-                # Continue with next batch instead of failing completely
+                current_lower = current_upper + 1
 
-            current_lower = current_upper + 1
             batch_num += 1
 
-        # Union all successful batches
+        # Final check for data in last 10%
+        if max_id > min_id:
+            final_range_start = int(max_id * 0.9)
+            if final_range_start > current_lower:
+                print(f"    Final range check: {final_range_start:,} to {max_id:,}")
+
+                final_condition = f"{id_column} >= {final_range_start}"
+                if where_clause:
+                    final_where = f"WHERE {where_clause} AND {final_condition}"
+                else:
+                    final_where = f"WHERE {final_condition}"
+
+                final_query = f"SELECT * FROM {table_name} {final_where}"
+
+                try:
+                    final_df = spark.read.jdbc(
+                        url=self.postgres_url,
+                        table=f"({final_query}) as {table_name}_final_range",
+                        properties=self.postgres_properties
+                    )
+
+                    final_count = final_df.count()
+                    print(f"      Final range loaded: {final_count:,} rows")
+
+                    if final_count > 0:
+                        batches.append(final_df)
+
+                except Exception as e:
+                    print(f"      Error reading final range: {e}")
+
+        # Union all batches
         if batches:
             print(f"    Combining {len(batches)} batches for {table_name}...")
             result_df = batches[0]
@@ -186,7 +229,6 @@ class ReadServiceRaw:
             return result_df
         else:
             print(f"    ⚠️  No data loaded for {table_name}")
-            # Return empty DataFrame with schema from a small sample
             sample_query = f"SELECT * FROM {table_name} LIMIT 0"
             return spark.read.jdbc(
                 url=self.postgres_url,
@@ -195,36 +237,32 @@ class ReadServiceRaw:
             )
 
     def read_large_tables(self, spark):
-        """Read large tables using sequential batching"""
+        """Read large tables without arbitrary batch limits"""
 
         print("Reading large tables with sequential batching...")
 
-        batch_size = 100000  # 100K rows per batch
+        batch_size = 100000
 
         try:
-            # Findings table with filtering
+            # Remove max_batches parameter - read ALL data
             findings_df = self.read_table_in_batches(
-                spark, "findings", "id", batch_size, "package_name IS NOT NULL", max_batches=30
+                spark, "findings", "id", batch_size, "package_name IS NOT NULL"
             )
 
-            # Findings scores
             findings_scores_df = self.read_table_in_batches(
-                spark, "findings_scores", "finding_id", batch_size, max_batches=30
+                spark, "findings_scores", "finding_id", batch_size
             )
 
-            # User status
             user_status_df = self.read_table_in_batches(
-                spark, "user_status", "id", batch_size, max_batches=30
+                spark, "user_status", "id", batch_size
             )
 
-            # Findings additional data
             findings_additional_data_df = self.read_table_in_batches(
-                spark, "findings_additional_data", "finding_id", batch_size, max_batches=30
+                spark, "findings_additional_data", "finding_id", batch_size
             )
 
-            # Findings info
             findings_info_df = self.read_table_in_batches(
-                spark, "findings_info", "id", batch_size, max_batches=30
+                spark, "findings_info", "id", batch_size
             )
 
         except Exception as e:

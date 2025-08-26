@@ -147,8 +147,8 @@ class ReadServiceRaw:
 
             print(f"    Reading batch {batch_num}: {id_column} {current_lower:,} to {current_upper:,}")
 
-            # Build WHERE clause
-            batch_condition = f"{id_column} >= {current_lower} AND {id_column} <= {current_upper}"
+            # Build WHERE clause using BETWEEN
+            batch_condition = f"{id_column} BETWEEN {current_lower} AND {current_upper}"
             if where_clause:
                 full_where = f"WHERE {where_clause} AND {batch_condition}"
             else:

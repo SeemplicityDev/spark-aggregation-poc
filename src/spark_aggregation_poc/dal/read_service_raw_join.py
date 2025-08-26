@@ -14,177 +14,255 @@ class ReadServiceRawJoin:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession) -> DataFrame:
-        """Hash-based partitioning with all joins from raw_join_query1.sql"""
+    def read_findings_data(self, spark: SparkSession, batch_size: int = 50000) -> DataFrame:
+        """Read data using PostgreSQL join query in batches to avoid disk space issues"""
 
-        print("=== Reading with optimized hash-based partitioning (all joins) ===")
+        print("=== Reading data using PostgreSQL join query in batches ===")
 
-        num_partitions = 16  # Reduced to ease PostgreSQL load
-        partition_dfs = []
-
-        for i in range(num_partitions):
-            print(f"Reading hash partition {i + 1}/{num_partitions}")
-
-            # Hash at the findings table level, then do all joins from raw_join_query1.sql
-            optimized_hash_query = f"""
-            SELECT 
-                findings.id as finding_id,
-                findings.package_name,
-                findings.main_resource_id,
-                findings.aggregation_group_id,
-                finding_sla_rule_connections.finding_id as sla_connection_id,
-                plain_resources.id as resource_id,
-                plain_resources.cloud_account as root_cloud_account,
-                plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
-                findings_scores.finding_id as score_finding_id,
-                user_status.id as user_status_id,
-                user_status.actual_status_key,
-                findings_additional_data.finding_id as additional_data_id,
-                statuses.key as status_key,
-                aggregation_groups.id as existing_group_id,
-                aggregation_groups.main_finding_id as existing_main_finding_id,
-                aggregation_groups.group_identifier as existing_group_identifier,
-                aggregation_groups.is_locked,
-                findings_info.id as findings_info_id
-            FROM findings
-            LEFT OUTER JOIN finding_sla_rule_connections ON
-                findings.id = finding_sla_rule_connections.finding_id
-            JOIN plain_resources ON
-                findings.main_resource_id = plain_resources.id
-            JOIN findings_scores ON
-                findings.id = findings_scores.finding_id
-            JOIN user_status ON
-                user_status.id = findings.id
-            LEFT OUTER JOIN findings_additional_data ON
-                findings.id = findings_additional_data.finding_id
-            JOIN statuses ON
-                statuses.key = user_status.actual_status_key
-            LEFT OUTER JOIN aggregation_groups ON
-                findings.aggregation_group_id = aggregation_groups.id
-            LEFT OUTER JOIN findings_info ON
-                findings_info.id = findings.id
-            LEFT OUTER JOIN aggregation_rules_findings_excluder ON
-                findings.id = aggregation_rules_findings_excluder.finding_id
-            WHERE findings.package_name IS NOT NULL
-            AND ABS(HASHTEXT(findings.id::text)) % {num_partitions} = {i}
-            """
-
-            partition_df = spark.read.jdbc(
-                url=self.postgres_url,
-                table=f"({optimized_hash_query}) as hash_partition_{i}",
-                properties=self.postgres_properties
-            )
-
-            partition_dfs.append(partition_df)
-
-        # Union all partitions
-        print("Combining all hash partitions...")
-        final_df = partition_dfs[0]
-        for df in partition_dfs[1:]:
-            final_df = final_df.union(df)
-
-        print(f"✓ Hash-based partitioning complete with {num_partitions} partitions")
-        return final_df
-
-    def read_findings_data_bak(self, spark: SparkSession) -> DataFrame:
-        """Read raw joined data without GROUP BY for Spark-side aggregation"""
-
-        print("=== Reading raw joined data from PostgreSQL ===")
-
-        optimized_properties = self.appl_optimized_config(spark)
-
+        # Get the raw join query
         raw_query = self.get_join_query()
+        print("Base join query loaded from raw_join_query1.sql")
 
-        # Get actual data range first
-        bounds_query = "(SELECT MIN(findings.id) as min_id, MAX(findings.id) as max_id FROM findings WHERE findings.package_name IS NOT NULL) as bounds"
-
+        # Get findings ID bounds for batching
+        print("Getting findings ID bounds for batching...")
+        bounds_query = "SELECT MIN(id) as min_id, MAX(id) as max_id FROM findings WHERE package_name IS NOT NULL"
         bounds_df = spark.read.jdbc(
             url=self.postgres_url,
-            table=bounds_query,
-            properties=optimized_properties
+            table=f"({bounds_query}) as bounds",
+            properties=self.postgres_properties
         )
 
         bounds_row = bounds_df.collect()[0]
-        actual_min = bounds_row['min_id'] or 1
-        actual_max = bounds_row['max_id'] or 1000000
+        min_id = bounds_row["min_id"]
+        max_id = bounds_row["max_id"]
 
-        print(f"Actual finding_id range: {actual_min} to {actual_max}")
+        print(f"Findings ID range: {min_id:,} to {max_id:,}")
 
-        # Use actual bounds with more partitions
-        df = spark.read.jdbc(
-            url=self.postgres_url,
-            table=raw_query,
-            properties=optimized_properties,
-            column="finding_id",
-            lowerBound=actual_min,  # Use actual minimum
-            upperBound=actual_max,  # Use actual maximum
-            numPartitions=32  # Double the partitions
-        )
+        # Read in batches
+        batches = []
+        current_lower = min_id
+        batch_num = 1
 
-        # Immediate optimizations for large raw dataset
-        # df_optimized = df.repartition(16, "package_name").cache()  # Partition by group key
+        while current_lower <= max_id:
+            current_upper = min(current_lower + batch_size - 1, max_id)
 
-        print("=== Raw data loaded, verifying... ===")
-        row_count = df.count()
-        print(f"Raw data rows: {row_count}")
+            print(f"  Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
 
-        # Show sample
-        df.show(5)
+            # Create batched version of the join query
+            # Add findings.id filter to the existing WHERE clause
+            batch_condition = f"findings.id BETWEEN {current_lower} AND {current_upper}"
 
-        # self.test_group_by(df_optimized)
+            # Replace the existing WHERE clause to include the batch condition
+            if "WHERE" in raw_query:
+                # Insert the batch condition with the existing WHERE clause
+                batched_query = raw_query.replace(
+                    "WHERE findings.package_name IS NOT NULL",
+                    f"WHERE findings.package_name IS NOT NULL AND {batch_condition}"
+                )
+            else:
+                # Add WHERE clause if it doesn't exist
+                batched_query = f"{raw_query} WHERE {batch_condition}"
 
-        return df
+            try:
+                # Read the batch with optimized properties
+                # batch_properties = self.get_optimized_batch_properties()
 
-    def test_group_by(self, df_optimized):
-        # test group by
-        result_df = df_optimized.groupBy("package_name").agg(
-            coalesce(
-                collect_list(
-                    when(col("aggregation_group_id").isNull(), col("finding_id"))
-                ),
-                array().cast("array<int>")
-            ).alias("finding_ids_without_group")
-        )
-        print("Group by package_name")
-        result_df.show()
-        result_df = df_optimized.groupBy("root_cloud_account").agg(
-            coalesce(
-                collect_list(
-                    when(col("aggregation_group_id").isNull(), col("finding_id"))
-                ),
-                array().cast("array<int>")
-            ).alias("finding_ids_without_group")
-        )
-        print("Group by cloud_account")
-        result_df.show()
+                batch_df = spark.read.jdbc(
+                    url=self.postgres_url,
+                    table=f"({batched_query}) as batch_{batch_num}",
+                    properties=self.postgres_properties
+                )
 
-    def appl_optimized_config(self, spark):
-        # Cell 1: Anti-skew optimizations
-        print("=== Adding anti-skew optimizations ===")
-        # Your existing optimizations PLUS anti-skew settings
-        # spark.conf.set("spark.executor.heartbeatInterval", "120s")
-        # spark.conf.set("spark.network.timeout", "1200s")
-        # spark.conf.set("spark.sql.broadcastTimeout", "7200")
-        # Anti-skew configurations
-        spark.conf.set("spark.sql.adaptive.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
-        spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", "64MB")  # Lower threshold
-        spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128MB")  # Smaller partitions
-        # More aggressive partitioning
-        spark.conf.set("spark.sql.adaptive.coalescePartitions.minPartitionSize", "32MB")  # Smaller min size
-        print("✓ Applied anti-skew optimizations")
-        # Optimized JDBC properties for large raw dataset
-        optimized_properties = self.postgres_properties.copy()
-        optimized_properties.update({
-            "fetchsize": "20000",  # Larger fetch for raw data
-            "queryTimeout": "0",  # No query timeout
-            "loginTimeout": "120",  # Longer login timeout
-            "tcpKeepAlive": "true",  # Keep connections alive
-            "socketTimeout": "0",  # No socket timeout
-            "batchsize": "20000"  # Larger batch size
+                # Force execution and count
+                batch_count = batch_df.count()
+                print(f"    Batch {batch_num} loaded: {batch_count:,} rows")
+
+                if batch_count > 0:
+                    batches.append(batch_df)
+
+                # Always move to next batch
+                current_lower = current_upper + 1
+
+            except Exception as e:
+                print(f"    Error reading batch {batch_num}: {e}")
+                # Try smaller batch on error
+                if batch_size > 10000:
+                    print(f"    Retrying with smaller batch size...")
+                    try:
+                        smaller_batch_df = self.retry_with_smaller_batch(
+                            spark, raw_query, current_lower, current_upper, batch_num, batch_size // 2
+                        )
+                        if smaller_batch_df is not None:
+                            smaller_count = smaller_batch_df.count()
+                            print(f"    Retry batch {batch_num} loaded: {smaller_count:,} rows")
+                            if smaller_count > 0:
+                                batches.append(smaller_batch_df)
+                    except Exception as retry_error:
+                        print(f"    Retry also failed: {retry_error}")
+
+                current_lower = current_upper + 1
+
+            batch_num += 1
+
+            # Memory management - consolidate every 10 batches
+            if len(batches) > 0 and len(batches) % 10 == 0:
+                print(f"    Consolidating {len(batches)} batches to manage memory...")
+                batches = [self.consolidate_batches(batches)]
+
+        # Union all batches
+        if batches:
+            print(f"  Combining {len(batches)} final batches...")
+            result_df = batches[0]
+            for batch_df in batches[1:]:
+                result_df = result_df.union(batch_df)
+
+            # Final optimization
+            result_df = result_df.repartition(16, "package_name").cache()
+
+            total_count = result_df.count()
+            print(f"  ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
+
+            # Show sample
+            print("  Sample of joined data:")
+            result_df.show(5, truncate=False)
+
+            return result_df
+        else:
+            print("  ⚠️  No data loaded")
+            # Return empty DataFrame with correct schema
+            empty_query = f"({raw_query}) as empty_result LIMIT 0"
+            return spark.read.jdbc(
+                url=self.postgres_url,
+                table=empty_query,
+                properties=self.postgres_properties
+            )
+
+    def get_optimized_batch_properties(self):
+        """Get optimized JDBC properties for batched reads"""
+        batch_properties = self.postgres_properties.copy()
+        batch_properties.update({
+            "fetchsize": "50000",  # Larger fetch for complex joins
+            "queryTimeout": "1800",  # 30 minute timeout
+            "loginTimeout": "120",
+            "tcpKeepAlive": "true",
+            "socketTimeout": "1800",
+            "batchsize": "50000",
+            "stringtype": "unspecified"  # Handle PostgreSQL string types better
         })
-        return optimized_properties
+        return batch_properties
+
+    def retry_with_smaller_batch(self, spark, raw_query, current_lower, current_upper, batch_num, smaller_batch_size):
+        """Retry failed batch with smaller batch size"""
+        smaller_upper = min(current_lower + smaller_batch_size - 1, current_upper)
+
+        smaller_batch_condition = f"findings.id BETWEEN {current_lower} AND {smaller_upper}"
+        smaller_batched_query = raw_query.replace(
+            "WHERE findings.package_name IS NOT NULL",
+            f"WHERE findings.package_name IS NOT NULL AND {smaller_batch_condition}"
+        )
+
+        return spark.read.jdbc(
+            url=self.postgres_url,
+            table=f"({smaller_batched_query}) as batch_{batch_num}_retry",
+            properties=self.postgres_properties
+        )
+
+    def consolidate_batches(self, batches):
+        """Consolidate multiple batches into one to manage memory"""
+        consolidated_df = batches[0]
+        for batch_df in batches[1:]:
+            consolidated_df = consolidated_df.union(batch_df)
+
+        return consolidated_df.cache()
+
+    def get_table_bounds(self, spark, table_name, id_column):
+        """Get the min and max values for the given column in the table"""
+        bounds_query = f"SELECT MIN({id_column}) as min_id, MAX({id_column}) as max_id FROM {table_name}"
+        bounds_df = spark.read.jdbc(
+            url=self.postgres_url,
+            table=f"({bounds_query}) as bounds",
+            properties=self.postgres_properties
+        )
+
+        bounds_row = bounds_df.collect()[0]
+        return bounds_row["min_id"], bounds_row["max_id"]
+
+    def read_table_in_batches(self, spark, table_name, id_column, batch_size, where_clause=""):
+        """Read table in batches sequentially without skipping any ranges"""
+        print(f"  Reading {table_name} with complete sequential batching...")
+
+        # Get the actual bounds
+        min_id, max_id = self.get_table_bounds(spark, table_name, id_column)
+        print(f"    {table_name} ID range: {min_id:,} to {max_id:,}")
+
+        batches = []
+        current_lower = min_id
+        batch_num = 1
+
+        # Process every batch sequentially - NO SKIPPING
+        while current_lower <= max_id:
+            current_upper = min(current_lower + batch_size - 1, max_id)
+
+            print(f"    Reading batch {batch_num}: {id_column} {current_lower:,} to {current_upper:,}")
+
+            # Build WHERE clause using BETWEEN
+            batch_condition = f"{id_column} BETWEEN {current_lower} AND {current_upper}"
+            if where_clause:
+                full_where = f"WHERE {where_clause} AND {batch_condition}"
+            else:
+                full_where = f"WHERE {batch_condition}"
+
+            batch_query = f"SELECT * FROM {table_name} {full_where}"
+
+            try:
+                batch_df = spark.read.jdbc(
+                    url=self.postgres_url,
+                    table=f"({batch_query}) as {table_name}_batch_{batch_num}",
+                    properties=self.postgres_properties
+                )
+
+                batch_count = batch_df.count()
+                print(f"      Batch {batch_num} loaded: {batch_count:,} rows")
+
+                # Always add batch to list, even if empty (for completeness)
+                if batch_count > 0:
+                    batches.append(batch_df)
+
+                # ALWAYS move to next batch - no skipping logic
+                current_lower = current_upper + 1
+
+            except Exception as e:
+                print(f"      Error reading batch {batch_num}: {e}")
+                # Even on error, move to next batch - no skipping
+                current_lower = current_upper + 1
+
+            batch_num += 1
+
+            # Optional: Progress logging for very large ranges
+            if batch_num % 100 == 0:
+                progress_pct = ((current_lower - min_id) / (max_id - min_id)) * 100
+                print(f"    Progress: {progress_pct:.1f}% complete ({batch_num - 1} batches processed)")
+
+        # Union all batches
+        if batches:
+            print(f"    Combining {len(batches)} batches for {table_name}...")
+            result_df = batches[0]
+            for batch_df in batches[1:]:
+                result_df = result_df.union(batch_df)
+
+            total_count = result_df.count()
+            print(f"    ✓ {table_name} total: {total_count:,} rows from {len(batches)} batches")
+            print(f"    ✓ Processed {batch_num - 1} total batches (including empty ones)")
+            return result_df
+        else:
+            print(f"    ⚠️  No data loaded for {table_name} (all {batch_num - 1} batches were empty)")
+            sample_query = f"SELECT * FROM {table_name} LIMIT 0"
+            return spark.read.jdbc(
+                url=self.postgres_url,
+                table=f"({sample_query}) as empty_{table_name}",
+                properties=self.postgres_properties
+            )
+
 
     def get_join_query(self):
         # Get the directory where this file is located

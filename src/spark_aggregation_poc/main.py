@@ -63,11 +63,11 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         print(f"Read time: {time() - start:.2f} seconds")
         df.show()
 
-        # df_transformed: DataFrame = aggregation_service.aggregate(df)
-        # print("\n=== Groups to findings ===")
-        # start = time()
-        # df_transformed.show(10, truncate=False)
-        # print(f"Transform time: {time() - start:.2f} seconds")
+        df_groups_to_findings: DataFrame = aggregation_service_raw_join.aggregate(df)
+        print("\n=== Groups to findings ===")
+        start = time()
+        df_groups_to_findings.show()
+        print(f"Transform time: {time() - start:.2f} seconds")
         #
         # print("\n=== Writing to groups_to_findings table ===")
         # start = time()

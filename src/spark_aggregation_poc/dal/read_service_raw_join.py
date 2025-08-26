@@ -104,10 +104,10 @@ class ReadServiceRawJoin:
 
             batch_num += 1
 
-            # Memory management - consolidate every 10 batches
-            if len(batches) > 0 and len(batches) % 10 == 0:
-                print(f"    Consolidating {len(batches)} batches to manage memory...")
-                batches = [self.consolidate_batches(batches)]
+            # # Memory management - consolidate every 10 batches
+            # if len(batches) > 0 and len(batches) % 10 == 0:
+            #     print(f"    Consolidating {len(batches)} batches to manage memory...")
+            #     batches = [self.consolidate_batches(batches)]
 
         # Union all batches
         if batches:
@@ -141,12 +141,12 @@ class ReadServiceRawJoin:
         """Get optimized JDBC properties for batched reads"""
         batch_properties = self.postgres_properties.copy()
         batch_properties.update({
-            "fetchsize": "100000",  # Larger fetch for complex joins
+            "fetchsize": "200000",  # Larger fetch for complex joins
             "queryTimeout": "1800",  # 30 minute timeout
             "loginTimeout": "120",
             "tcpKeepAlive": "true",
             "socketTimeout": "1800",
-            "batchsize": "100000",
+            "batchsize": "200000",
             "stringtype": "unspecified"  # Handle PostgreSQL string types better
         })
         return batch_properties

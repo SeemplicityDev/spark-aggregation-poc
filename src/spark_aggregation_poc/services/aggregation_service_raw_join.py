@@ -1,8 +1,5 @@
-from typing import Tuple, Any, Iterable
-
-from pyspark import Row
-from pyspark.rdd import PipelinedRDD
 from pyspark.sql import DataFrame
+from pyspark.sql.functions import collect_list
 from pyspark.sql.functions import explode, col
 
 
@@ -15,23 +12,18 @@ class AggregationServiceRawJoin():
 
     def group_and_process(self, df):
         # Repartition for distributed safety
-        df = df.repartition("calculated_group_identifier")
+        df = df.repartition("package_name")
         # GroupByKey
-        grouped: PipelinedRDD[Tuple[Any, Iterable[Row]]] = df.rdd.map(lambda row: (row["calculated_group_identifier"], row)).groupByKey()
-        # Apply mapGroups via rdd - just some processing logic to demonstrate processing each group individually
-        processed_df = grouped.map(lambda kv: self.process_group(kv[0], kv[1])).toDF()
+        result_df: DataFrame = df.groupBy("package_name").agg(
+            collect_list("finding_id").alias("finding_ids"),
+        )
         print("=== After final grouping and processing ===")
-        processed_df.show(10, truncate=False)
-        return df
-
-
-    def process_group(self, group_id, rows_iter):
-        values = [row["calculated_finding_id"] for row in rows_iter]
-        return Row(group_id=group_id, count=len(values), concatenated=",".join(values))
+        result_df.show(10, truncate=False)
+        return result_df
 
 
     def create_groups_to_findings(self, df: DataFrame) -> DataFrame:
         return df.select(
-            col("calculated_group_identifier").alias("group_id"),
-            explode("finding_ids_without_group").alias("finding_id")
+            col("package_name").alias("group_id"),
+            explode("finding_ids").alias("finding_id")
         )

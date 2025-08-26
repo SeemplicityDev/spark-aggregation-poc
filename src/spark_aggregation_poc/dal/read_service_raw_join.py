@@ -14,7 +14,7 @@ class ReadServiceRawJoin:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_findings_data(self, spark: SparkSession, batch_size: int = 50000) -> DataFrame:
+    def read_findings_data(self, spark: SparkSession, batch_size: int = 100000) -> DataFrame:
         """Read data using PostgreSQL join query in batches to avoid disk space issues"""
 
         print("=== Reading data using PostgreSQL join query in batches ===")
@@ -141,12 +141,12 @@ class ReadServiceRawJoin:
         """Get optimized JDBC properties for batched reads"""
         batch_properties = self.postgres_properties.copy()
         batch_properties.update({
-            "fetchsize": "50000",  # Larger fetch for complex joins
+            "fetchsize": "100000",  # Larger fetch for complex joins
             "queryTimeout": "1800",  # 30 minute timeout
             "loginTimeout": "120",
             "tcpKeepAlive": "true",
             "socketTimeout": "1800",
-            "batchsize": "50000",
+            "batchsize": "100000",
             "stringtype": "unspecified"  # Handle PostgreSQL string types better
         })
         return batch_properties

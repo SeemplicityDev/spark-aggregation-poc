@@ -3,6 +3,9 @@ from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
+from spark_aggregation_poc.dal.read_service_raw_join_multi_connections import ReadServiceRawJoinMultiConnection
+from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches import \
+    ReadServiceRawJoinMultiConnectionBatches
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.services.aggregation_service import AggregationService
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
@@ -20,6 +23,10 @@ class Factory:
     @classmethod
     def create_read_service_raw_join(cls, config: Config) -> ReadServiceRawJoin:
         return ReadServiceRawJoin(config=config)
+
+    @classmethod
+    def create_read_service_raw_join_multi_connection_batches(cls, config: Config) -> ReadServiceRawJoinMultiConnectionBatches:
+        return ReadServiceRawJoinMultiConnectionBatches(config=config)
 
     @classmethod
     def create_read_service_raw(cls, config: Config) -> ReadServiceRaw:

@@ -39,7 +39,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
         # Override min_id if specified for testing
         if min_id_override is not None:
-            min_id = min(min_id, min_id_override)
+            min_id = max(min_id, min_id_override)
             print(f"Testing mode: starting min ID from {min_id:,} to {max_id:,}")
 
         total_range = max_id - min_id + 1

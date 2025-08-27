@@ -39,9 +39,8 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
         # Override min_id if specified for testing
         if min_id_override is not None:
-            original_min = min_id
             min_id = min(min_id, min_id_override)
-            print(f"Testing mode: starting min ID from {original_min:,} to {max_id:,}")
+            print(f"Testing mode: starting min ID from {min_id:,} to {max_id:,}")
 
         total_range = max_id - min_id + 1
         estimated_batches = (total_range + batch_size - 1) // batch_size

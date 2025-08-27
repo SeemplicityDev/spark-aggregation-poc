@@ -18,7 +18,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 400000,  # Total batch size across 4 connections
                            connections_per_batch: int = 4,
                            consolidation_frequency: int = 50,
-                           max_id_override: int = 400000000) -> DataFrame:
+                           min_id_override: int = 400000000) -> DataFrame:
         """
         Read data using PostgreSQL join query with multi-connection batching.
         Uses safe union methods to handle thousands of batches without recursion issues.
@@ -37,11 +37,11 @@ class ReadServiceRawJoinMultiConnectionBatches:
         print("Getting findings ID bounds for batching...")
         min_id, max_id = self.get_id_bounds(spark)
 
-        # Override max_id if specified for testing
-        if max_id_override is not None:
-            original_max = max_id
-            max_id = min(max_id, max_id_override)
-            print(f"Testing mode: limiting max ID from {original_max:,} to {max_id:,}")
+        # Override min_id if specified for testing
+        if min_id_override is not None:
+            original_min = min_id
+            min_id = min(min_id, min_id_override)
+            print(f"Testing mode: starting min ID from {original_min:,} to {max_id:,}")
 
         total_range = max_id - min_id + 1
         estimated_batches = (total_range + batch_size - 1) // batch_size

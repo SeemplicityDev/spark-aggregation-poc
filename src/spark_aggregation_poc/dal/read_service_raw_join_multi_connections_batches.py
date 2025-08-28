@@ -68,6 +68,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             if batch_df is not None:
+                batch_df = batch_df.persist()
                 batch_count = batch_df.count()
                 print(f"    Batch {batch_num} loaded: {batch_count:,} rows")
 

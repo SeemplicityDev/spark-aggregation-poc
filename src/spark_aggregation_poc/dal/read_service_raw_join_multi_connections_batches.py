@@ -18,7 +18,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 400000,  # Total batch size across 4 connections
                            connections_per_batch: int = 4,
                            consolidation_frequency: int = 50,
-                           min_id_override: int = 400000000) -> DataFrame:
+                           min_id_override: int = None) -> DataFrame:
         """
         Read data using PostgreSQL join query with multi-connection batching.
         Uses safe union methods to handle thousands of batches without recursion issues.
@@ -82,7 +82,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             # CRITICAL: Consolidate periodically to prevent recursion issues
             if len(batches) >= consolidation_frequency:
                 print(f"    Consolidating {len(batches)} batches to prevent recursion...")
-                consolidated_df = self.safe_consolidate_batches(batches)
+                consolidated_df = self.safe_union_all_batches(batches)  # ← Use tree-reduction
                 if consolidated_df is not None:
                     batches = [consolidated_df]
                     print(f"    ✓ Consolidated to 1 batch")
@@ -195,16 +195,16 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
             # Process in small chunks to avoid deep recursion
             chunk_size = 8  # Small chunk size to be safe
-            result = batches[0]
+            result: DataFrame = batches[0]
 
             for i in range(1, len(batches), chunk_size):
-                chunk_end = min(i + chunk_size, len(batches))
-                chunk = batches[i:chunk_end]
+                chunk_end: int = min(i + chunk_size, len(batches))
+                chunk: list[DataFrame] = batches[i:chunk_end]
 
                 print(f"        Processing chunk {i}-{chunk_end - 1} ({len(chunk)} DataFrames)")
 
                 # Union this chunk iteratively
-                chunk_result = chunk[0]
+                chunk_result: DataFrame = chunk[0]
                 for j, batch_df in enumerate(chunk[1:], 1):
                     chunk_result = chunk_result.union(batch_df)
 
@@ -241,7 +241,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             print(f"    Using tree-reduction approach for {len(batches)} batches")
 
             # Tree-reduction: pair-wise union in stages to avoid deep recursion
-            current_level = batches[:]
+            current_level: list[DataFrame] = batches[:]
             stage = 1
 
             while len(current_level) > 1:

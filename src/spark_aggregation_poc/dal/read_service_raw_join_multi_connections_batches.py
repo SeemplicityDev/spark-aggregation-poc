@@ -103,7 +103,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
                 # Show sample
                 print("  Sample of joined data:")
-                result_df.show(5, truncate=False)
+                result_df.show(5)
 
                 return result_df
             else:

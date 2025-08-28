@@ -17,7 +17,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
     def read_findings_data(self, spark: SparkSession,
                            batch_size: int = 400000,  # Total batch size across 4 connections
                            connections_per_batch: int = 4,
-                           consolidation_frequency: int = 500,
+                           consolidation_frequency: int = 2000,
                            min_id_override: int = None) -> DataFrame:
         """
         Read data using PostgreSQL join query with multi-connection batching.

@@ -15,8 +15,8 @@ class ReadServiceRawJoinMultiConnectionBatches:
         self.postgres_url = config.postgres_url
 
     def read_findings_data(self, spark: SparkSession,
-                           batch_size: int = 1600000,  # Total batch size across 4 connections
-                           connections_per_batch: int = 16,
+                           batch_size: int = 3200000,  # Total batch size across 4 connections
+                           connections_per_batch: int = 32,
                            consolidation_frequency: int = 2000,
                            min_id_override: int = None) -> DataFrame:
         """
@@ -68,7 +68,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             if batch_df is not None:
-                batch_df = batch_df.persist()
+                # batch_df = batch_df.persist()
                 batch_count = batch_df.count()
                 print(f"    Batch {batch_num} loaded: {batch_count:,} rows")
 

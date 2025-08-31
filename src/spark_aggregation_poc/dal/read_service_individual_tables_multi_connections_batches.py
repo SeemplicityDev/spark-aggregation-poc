@@ -14,9 +14,10 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def read_tables_separately_and_join(self, spark: SparkSession,
-                                        large_table_batch_size: int = 400000,
-                                        connections_per_batch: int = 4) -> DataFrame:
+
+    def read_findings_data(self, spark: SparkSession,
+                                        large_table_batch_size: int = 3200000,
+                                        connections_per_batch: int = 32) -> DataFrame:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
@@ -75,6 +76,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
         return result_df
 
+
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
                                  batch_size: int, connections_per_batch: int) -> DataFrame:
         """Load large table using batched multi-connection approach"""
@@ -119,6 +121,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         else:
             return self.get_empty_table_dataframe(spark, table_name)
 
+
     def load_medium_table(self, spark: SparkSession, table_name: str) -> DataFrame:
         """Load medium table using simple multi-connection partitioning"""
 
@@ -135,6 +138,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             properties=self.get_optimized_properties()
         )
 
+
     def load_small_table(self, spark: SparkSession, table_name: str) -> DataFrame:
         """Load small table using single connection"""
 
@@ -143,6 +147,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             table=table_name,
             properties=self.get_optimized_properties()
         )
+
 
     def load_table_batch_with_connections(self, spark: SparkSession, table_name: str,
                                           id_column: str, start_id: int, end_id: int,
@@ -160,6 +165,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             numPartitions=num_connections,
             properties=self.get_optimized_properties()
         )
+
 
     def join_all_tables(self, tables: Dict[str, DataFrame]) -> DataFrame:
         """Join all loaded tables in optimal order"""
@@ -256,6 +262,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
         return result_df
 
+
     def get_id_column_for_table(self, table_name: str) -> str:
         """Get the ID column name for each table"""
         id_columns = {
@@ -272,6 +279,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         }
         return id_columns.get(table_name, "id")
 
+
     def get_table_id_bounds(self, spark: SparkSession, table_name: str, id_column: str) -> Tuple[int, int]:
         """Get min and max ID for a table"""
 
@@ -286,6 +294,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         row = bounds_df.collect()[0]
         return int(row['min_id']), int(row['max_id'])
 
+
     def get_empty_table_dataframe(self, spark: SparkSession, table_name: str) -> DataFrame:
         """Return empty DataFrame for a specific table"""
         empty_query = f"(SELECT * FROM {table_name} LIMIT 0) as empty_{table_name}"
@@ -294,6 +303,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             table=empty_query,
             properties=self.postgres_properties
         )
+
 
     def read_findings_data(self, spark: SparkSession,
                            batch_size: int = 3200000,  # Total batch size across 4 connections
@@ -396,6 +406,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             print("  ⚠️  No data loaded")
             return self.get_empty_dataframe(spark)
 
+
     def load_batch_with_connections(self, spark: SparkSession, start_id: int, end_id: int,
                                     num_connections: int, batch_num: int, raw_query: str,
                                     properties: dict) -> DataFrame:
@@ -442,6 +453,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
             return None
 
+
     def retry_with_smaller_batch(self, spark: SparkSession, raw_query: str,
                                  start_id: int, end_id: int, batch_num: int,
                                  properties: dict) -> DataFrame:
@@ -464,6 +476,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             table=f"({smaller_query}) as batch_{batch_num}_retry",
             properties=properties
         )
+
 
     def safe_union_all_batches(self, batches: List[DataFrame]) -> DataFrame:
         """Safely union all batches using tree-reduction approach"""
@@ -530,6 +543,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
                     continue
             return None
 
+
     def get_id_bounds(self, spark: SparkSession) -> Tuple[int, int]:
         """Get min and max finding IDs"""
         bounds_query = "SELECT MIN(id) as min_id, MAX(id) as max_id FROM findings WHERE package_name IS NOT NULL"
@@ -541,6 +555,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
         bounds_row = bounds_df.collect()[0]
         return bounds_row["min_id"], bounds_row["max_id"]
+
 
     def get_optimized_properties(self) -> dict:
         """Get JDBC properties optimized for multi-connection batching"""
@@ -556,6 +571,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         })
         return optimized_properties
 
+
     def get_join_query(self) -> str:
         """Load the raw join query from file"""
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -566,6 +582,7 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             content = f.read().strip()
 
         return content
+
 
     def get_empty_dataframe(self, spark: SparkSession) -> DataFrame:
         """Return empty DataFrame with correct schema"""

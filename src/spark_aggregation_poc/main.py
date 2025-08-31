@@ -60,7 +60,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
         aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
-        aggregation_service_multi_rule_no_write: AggregationServiceMultiRulesNoWrite = app_context.aggregation_service_multi_rules_no_write
+        aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite = app_context.aggregation_service_multi_rules_no_write
 
         from time import time
 
@@ -69,7 +69,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         print(f"Read time: {time() - start:.2f} seconds")
         df.show()
 
-        df_groups_to_findings: DataFrame = aggregation_service_multi_rule_no_write.aggregate(df)
+        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df)
         print("\n=== Groups to findings ===")
         start = time()
         df_groups_to_findings.show()

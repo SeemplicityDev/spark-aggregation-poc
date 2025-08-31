@@ -1,7 +1,6 @@
 import json
 import os
 from typing import List, Dict
-import re
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
@@ -138,18 +137,22 @@ class AggregationServiceMultiRulesNoWrite():
         for prefix in table_prefixes:
             cleaned = cleaned.replace(prefix, '')
 
-        # Handle special column name mappings
-        column_mappings = {
-            'cloud_account': 'root_cloud_account',
-            'cloud_account_friendly_name': 'root_cloud_account_friendly_name',
-            # Add more mappings as needed
-        }
+        # Handle special column name mappings using simple string replacement
+        # Be careful with word boundaries - replace specific patterns
+        column_mappings = [
+            ('cloud_account=', 'root_cloud_account='),
+            ('cloud_account ', 'root_cloud_account '),
+            ('cloud_account,', 'root_cloud_account,'),
+            ('cloud_account)', 'root_cloud_account)'),
+            ('cloud_account_friendly_name=', 'root_cloud_account_friendly_name='),
+            ('cloud_account_friendly_name ', 'root_cloud_account_friendly_name '),
+            ('cloud_account_friendly_name,', 'root_cloud_account_friendly_name,'),
+            ('cloud_account_friendly_name)', 'root_cloud_account_friendly_name)'),
+        ]
 
-        # Apply column mappings (word boundaries to avoid partial matches)
-        for old_col, new_col in column_mappings.items():
-            # Use word boundaries to ensure we only replace complete column names
-            pattern = r'\b' + re.escape(old_col) + r'\b'
-            cleaned = re.sub(pattern, new_col, cleaned)
+        # Apply column mappings
+        for old_pattern, new_pattern in column_mappings:
+            cleaned = cleaned.replace(old_pattern, new_pattern)
 
         return cleaned
 

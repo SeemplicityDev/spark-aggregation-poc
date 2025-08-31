@@ -166,7 +166,6 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             properties=self.get_optimized_properties()
         )
 
-
     def join_all_tables(self, tables: Dict[str, DataFrame]) -> DataFrame:
         """Join all loaded tables in optimal order"""
 
@@ -180,83 +179,103 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
         print(f"  Starting with findings: {result_df.count():,} rows")
 
-        # Join with plain_resources (INNER JOIN)
+        # Create aliased plain_resources DataFrame first
+        plain_resources_df = tables["plain_resources"].select(
+            col("id").alias("resource_id"),
+            col("cloud_account").alias("root_cloud_account"),
+            col("cloud_account_friendly_name").alias("root_cloud_account_friendly_name")
+        )
+
+        # Join with plain_resources (INNER JOIN) - use col() for both sides
         result_df = result_df.join(
-            tables["plain_resources"].select(
-                col("id").alias("resource_id"),
-                col("cloud_account").alias("root_cloud_account"),
-                col("cloud_account_friendly_name").alias("root_cloud_account_friendly_name")
-            ),
-            result_df.main_resource_id == tables["plain_resources"].id,
+            plain_resources_df,
+            col("main_resource_id") == col("resource_id"),
             "inner"
         )
         print(f"  After plain_resources join: {result_df.count():,} rows")
 
+        # Create aliased findings_scores DataFrame first
+        findings_scores_df = tables["findings_scores"].select(
+            col("finding_id").alias("score_finding_id"),
+            col("severity")
+        )
+
         # Join with findings_scores (INNER JOIN)
         result_df = result_df.join(
-            tables["findings_scores"].select(
-                col("finding_id").alias("score_finding_id"),
-                col("severity")
-            ),
-            result_df.finding_id == tables["findings_scores"].finding_id,
+            findings_scores_df,
+            col("finding_id") == col("score_finding_id"),
             "inner"
         )
         print(f"  After findings_scores join: {result_df.count():,} rows")
 
+        # Create aliased user_status DataFrame first
+        user_status_df = tables["user_status"].select(
+            col("id").alias("user_status_id"),
+            col("actual_status_key")
+        )
+
         # Join with user_status (INNER JOIN)
         result_df = result_df.join(
-            tables["user_status"].select(
-                col("id").alias("user_status_id"),
-                col("actual_status_key")
-            ),
-            result_df.finding_id == tables["user_status"].id,
+            user_status_df,
+            col("finding_id") == col("user_status_id"),
             "inner"
         )
         print(f"  After user_status join: {result_df.count():,} rows")
 
+        # Create aliased statuses DataFrame first
+        statuses_df = broadcast(tables["statuses"].select(
+            col("key").alias("status_key")
+        ))
+
         # Join with statuses (INNER JOIN) - broadcast small table
         result_df = result_df.join(
-            broadcast(tables["statuses"].select(
-                col("key").alias("status_key")
-            )),
-            result_df.actual_status_key == tables["statuses"].key,
+            statuses_df,
+            col("actual_status_key") == col("status_key"),
             "inner"
         )
         print(f"  After statuses join: {result_df.count():,} rows")
 
         # Left outer joins for optional tables
-        result_df = result_df.join(
-            tables["finding_sla_rule_connections"].select(
-                col("finding_id").alias("sla_connection_id")
-            ),
-            result_df.finding_id == tables["finding_sla_rule_connections"].finding_id,
-            "left_outer"
+        sla_connections_df = tables["finding_sla_rule_connections"].select(
+            col("finding_id").alias("sla_connection_id")
         )
 
         result_df = result_df.join(
-            tables["findings_additional_data"].select(
-                col("finding_id").alias("additional_data_id")
-            ),
-            result_df.finding_id == tables["findings_additional_data"].finding_id,
+            sla_connections_df,
+            col("finding_id") == col("sla_connection_id"),
             "left_outer"
         )
 
-        result_df = result_df.join(
-            broadcast(tables["aggregation_groups"].select(
-                col("id").alias("existing_group_id"),
-                col("main_finding_id").alias("existing_main_finding_id"),
-                col("group_identifier").alias("existing_group_identifier"),
-                col("is_locked")
-            )),
-            result_df.aggregation_group_id == tables["aggregation_groups"].id,
-            "left_outer"
+        additional_data_df = tables["findings_additional_data"].select(
+            col("finding_id").alias("additional_data_id")
         )
 
         result_df = result_df.join(
-            tables["findings_info"].select(
-                col("id").alias("findings_info_id")
-            ),
-            result_df.finding_id == tables["findings_info"].id,
+            additional_data_df,
+            col("finding_id") == col("additional_data_id"),
+            "left_outer"
+        )
+
+        aggregation_groups_df = broadcast(tables["aggregation_groups"].select(
+            col("id").alias("existing_group_id"),
+            col("main_finding_id").alias("existing_main_finding_id"),
+            col("group_identifier").alias("existing_group_identifier"),
+            col("is_locked")
+        ))
+
+        result_df = result_df.join(
+            aggregation_groups_df,
+            col("aggregation_group_id") == col("existing_group_id"),
+            "left_outer"
+        )
+
+        findings_info_df = tables["findings_info"].select(
+            col("id").alias("findings_info_id")
+        )
+
+        result_df = result_df.join(
+            findings_info_df,
+            col("finding_id") == col("findings_info_id"),
             "left_outer"
         )
 

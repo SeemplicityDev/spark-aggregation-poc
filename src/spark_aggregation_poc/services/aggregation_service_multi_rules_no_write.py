@@ -1,6 +1,7 @@
 import json
 import os
 from typing import List, Dict
+import re
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (

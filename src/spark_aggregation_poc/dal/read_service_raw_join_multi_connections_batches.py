@@ -104,6 +104,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
                 # Show sample
                 print("  Sample of joined data:")
+                result_df.persist()
                 result_df.show(5)
 
                 return result_df
@@ -183,52 +184,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
             properties=properties
         )
 
-    def safe_consolidate_batches(self, batches: List[DataFrame]) -> DataFrame:
-        """Safely consolidate batches using iterative chunking approach"""
-        if not batches:
-            return None
-
-        if len(batches) == 1:
-            return batches[0]
-
-        try:
-            print(f"      Consolidating {len(batches)} batches iteratively...")
-
-            # Process in small chunks to avoid deep recursion
-            chunk_size = 8  # Small chunk size to be safe
-            result: DataFrame = batches[0]
-
-            for i in range(1, len(batches), chunk_size):
-                chunk_end: int = min(i + chunk_size, len(batches))
-                chunk: list[DataFrame] = batches[i:chunk_end]
-
-                print(f"        Processing chunk {i}-{chunk_end - 1} ({len(chunk)} DataFrames)")
-
-                # Union this chunk iteratively
-                chunk_result: DataFrame = chunk[0]
-                for j, batch_df in enumerate(chunk[1:], 1):
-                    chunk_result = chunk_result.union(batch_df)
-
-                # Union chunk result with main result
-                result = result.union(chunk_result)
-
-                # Persist every few chunks to break lineage and avoid memory buildup
-                if i % (chunk_size * 3) == 1:  # Every ~24 batches
-                    result = result.persist()
-                    # Force evaluation to materialize
-                    _ = result.count()
-                    print(f"        Persisted intermediate result at chunk {i}")
-
-            # Final persist and evaluation
-            result = result.persist()
-            final_count = result.count()
-            print(f"      ✓ Consolidated to single DataFrame with {final_count:,} rows")
-
-            return result
-
-        except Exception as e:
-            print(f"      ❌ Consolidation failed: {e}")
-            return None
 
     def safe_union_all_batches(self, batches: List[DataFrame]) -> DataFrame:
         """Safely union all batches using tree-reduction approach"""

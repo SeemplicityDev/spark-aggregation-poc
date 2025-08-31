@@ -1,5 +1,7 @@
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
+from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
+    ReadServiceIndividualTablesMultiConnectionBatches
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
@@ -28,6 +30,11 @@ class Factory:
     @classmethod
     def create_read_service_raw_join_multi_connection_batches(cls, config: Config) -> ReadServiceRawJoinMultiConnectionBatches:
         return ReadServiceRawJoinMultiConnectionBatches(config=config)
+
+    @classmethod
+    def create_read_service_individual_tables_multi_connection_batches(cls,
+                                                              config: Config) -> ReadServiceIndividualTablesMultiConnectionBatches:
+        return ReadServiceIndividualTablesMultiConnectionBatches(config=config)
 
     @classmethod
     def create_read_service_raw(cls, config: Config) -> ReadServiceRaw:

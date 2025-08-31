@@ -4,6 +4,8 @@ from pyspark.sql import SparkSession, DataFrame
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
+from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
+    ReadServiceIndividualTablesMultiConnectionBatches
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
@@ -56,6 +58,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         read_service_pre_partition: ReadServicePrePartition = app_context.read_service_pre_partition
         read_service_raw_join: ReadServiceRawJoin = app_context.read_service_raw_join
         read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = app_context.read_service_raw_join_multi_connection_batches
+        create_read_service_individual_tables_multi_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = app_context.read_service_individual_tables_connection_batches
         read_service_raw: ReadServiceRaw = app_context.read_service_raw
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
@@ -65,15 +68,15 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = read_service_raw_join_multi_connection_batches.read_findings_data(spark=spark)
+        df = create_read_service_individual_tables_multi_connection_batches.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
         # df.show()
 
-        # df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df)
-        # print("\n=== Groups to findings ===")
-        # start = time()
-        # df_groups_to_findings.show()
-        # print(f"Transform time: {time() - start:.2f} seconds")
+        df_groups_to_findings: DataFrame = aggregation_service_raw_join.aggregate(df)
+        print("\n=== Groups to findings ===")
+        start = time()
+        df_groups_to_findings.show()
+        print(f"Transform time: {time() - start:.2f} seconds")
         #
         # print("\n=== Writing to groups_to_findings table ===")
         # start = time()

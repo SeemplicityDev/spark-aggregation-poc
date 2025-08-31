@@ -84,13 +84,18 @@ class AggregationServiceMultiRulesNoWrite():
             return json.load(f)
 
     def apply_sql_filter(self, df: DataFrame, filter_condition: str, rule_idx: int) -> DataFrame:
-        """Apply SQL WHERE condition using expr()"""
+        """Apply SQL WHERE condition using expr() after removing table prefixes"""
         try:
-            print(f"  Applying filter: {filter_condition[:100]}..." if len(
-                filter_condition) > 100 else f"  Applying filter: {filter_condition}")
+            # Remove table prefixes from the filter condition
+            cleaned_filter = self.clean_filter_condition(filter_condition)
+
+            print(f"  Original filter: {filter_condition[:100]}..." if len(
+                filter_condition) > 100 else f"  Original filter: {filter_condition}")
+            print(f"  Cleaned filter: {cleaned_filter[:100]}..." if len(
+                cleaned_filter) > 100 else f"  Cleaned filter: {cleaned_filter}")
 
             # Use expr() to evaluate SQL expression directly on DataFrame
-            filtered_df = df.filter(expr(filter_condition))
+            filtered_df = df.filter(expr(cleaned_filter))
 
             rows_before = df.count()
             rows_after = filtered_df.count()
@@ -102,6 +107,50 @@ class AggregationServiceMultiRulesNoWrite():
             print(f"  ❌ Filter failed: {e}")
             print(f"  Using original data without filter")
             return df
+
+    def clean_filter_condition(self, filter_condition: str) -> str:
+        """
+        Remove table prefixes from SQL filter condition
+
+        Examples:
+        - "findings.source='Qualys'" → "source='Qualys'"
+        - "findings_scores.severity=3" → "severity=3"
+        - "not findings.id in (select finding_id from carlsberg.tickets)" → "not finding_id in (select finding_id from tickets)"
+        """
+        cleaned = filter_condition
+
+        # Define table prefixes to remove
+        table_prefixes = [
+            'findings.',
+            'findings_scores.',
+            'findings_additional_data.',
+            'plain_resources.',
+            'user_status.',
+            'statuses.',
+            'aggregation_groups.',
+            'findings_info.',
+            'finding_sla_rule_connections.',
+            'carlsberg.',  # Schema prefix
+        ]
+
+        # Remove table prefixes
+        for prefix in table_prefixes:
+            cleaned = cleaned.replace(prefix, '')
+
+        # Handle special column name mappings
+        column_mappings = {
+            'cloud_account': 'root_cloud_account',
+            'cloud_account_friendly_name': 'root_cloud_account_friendly_name',
+            # Add more mappings as needed
+        }
+
+        # Apply column mappings (word boundaries to avoid partial matches)
+        for old_col, new_col in column_mappings.items():
+            # Use word boundaries to ensure we only replace complete column names
+            pattern = r'\b' + re.escape(old_col) + r'\b'
+            cleaned = re.sub(pattern, new_col, cleaned)
+
+        return cleaned
 
     def extract_group_columns(self, group_by_fields: List[str]) -> List[str]:
         """Convert JSON field names to DataFrame column names"""
@@ -131,7 +180,7 @@ class AggregationServiceMultiRulesNoWrite():
         """Group by columns and aggregate finding_ids + cloud_accounts as lists"""
 
         # Validate columns exist
-        valid_columns = [col for col in group_columns if col in df.columns]
+        valid_columns = [column for column in group_columns if column in df.columns]
 
         if not valid_columns:
             print(f"No valid group columns: {group_columns}")
@@ -147,5 +196,5 @@ class AggregationServiceMultiRulesNoWrite():
             lit(rule_idx).alias("rule_number")
         ).withColumn(
             "group_id",
-            concat_ws("_", *[coalesce(col(c).cast("string"), lit("null")) for c in valid_columns])
+            concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
         )

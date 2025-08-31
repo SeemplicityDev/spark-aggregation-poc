@@ -16,7 +16,13 @@ SELECT
     aggregation_groups.main_finding_id as existing_main_finding_id,
     aggregation_groups.group_identifier as existing_group_identifier,
     aggregation_groups.is_locked,
-    findings_info.id as findings_info_id
+    findings_info.id as findings_info_id,
+    findings.source as source,
+    findings_scores.severity as severity,
+    findings.rule_id as rule_id,
+    findings.category as category,
+    findings.rule_family as rule_family
+
 FROM findings
 LEFT OUTER JOIN finding_sla_rule_connections ON
     findings.id = finding_sla_rule_connections.finding_id

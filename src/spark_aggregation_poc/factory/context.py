@@ -11,6 +11,7 @@ from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches i
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.factory import Factory
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
 
@@ -25,6 +26,7 @@ class AppContext:
     write_service: WriteService
     aggregation_service: AggregationService
     aggregation_service_raw_join: AggregationServiceRawJoin
+    aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite
 
 def build_app_context(config: Config = None) -> AppContext:
     if config is None:
@@ -39,4 +41,6 @@ def build_app_context(config: Config = None) -> AppContext:
     write_service: WriteService = Factory.create_write_service(config)
     aggregation_service: AggregationService = Factory.create_aggregation_service()
     aggregation_service_raw_join: AggregationServiceRawJoin = Factory.create_aggregation_service_raw_join()
-    return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw_join_multi_connection_batches, read_service_raw, write_service, aggregation_service, aggregation_service_raw_join)
+    aggregation_service_multi_rule_no_write: AggregationServiceMultiRulesNoWrite = Factory.create_aggregation_service_multi_rules_no_write()
+    return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw_join_multi_connection_batches,
+                      read_service_raw, write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write)

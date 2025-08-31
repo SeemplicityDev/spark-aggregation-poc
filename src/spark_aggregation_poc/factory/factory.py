@@ -8,6 +8,7 @@ from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches i
     ReadServiceRawJoinMultiConnectionBatches
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
 
@@ -43,3 +44,7 @@ class Factory:
     @classmethod
     def create_aggregation_service_raw_join(cls) -> AggregationServiceRawJoin:
         return AggregationServiceRawJoin()
+
+    @classmethod
+    def create_aggregation_service_multi_rules_no_write(cls) -> AggregationServiceMultiRulesNoWrite:
+        return AggregationServiceMultiRulesNoWrite()

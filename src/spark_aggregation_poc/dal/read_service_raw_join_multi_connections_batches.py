@@ -22,8 +22,10 @@ class ReadServiceRawJoinMultiConnectionBatches:
         Read data using PostgreSQL join query with multi-connection batching.
         Uses safe union methods to handle thousands of batches without recursion issues.
         """
+        from datetime import datetime
 
-        print(f"=== Reading data using multi-connection batching ===")
+        start_time = datetime.now()
+        print(f"=== [{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting data loading ===")
         print(f"Batch size: {batch_size:,} IDs per batch")
         print(f"Connections per batch: {connections_per_batch}")
 
@@ -49,7 +51,10 @@ class ReadServiceRawJoinMultiConnectionBatches:
         # Get optimized properties
         optimized_properties = self.get_optimized_properties()
 
-        # Read in batches with safe consolidation
+        # Read in batches
+        loading_start = datetime.now()
+        print(f"[{loading_start.strftime('%Y-%m-%d %H:%M:%S')}] Starting batch loading phase...")
+
         batches = []
         current_lower = min_id
         batch_num = 1
@@ -57,7 +62,9 @@ class ReadServiceRawJoinMultiConnectionBatches:
         while current_lower <= max_id:
             current_upper = min(current_lower + batch_size - 1, max_id)
 
-            print(f"  Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
+            batch_start = datetime.now()
+            print(
+                f"  [{batch_start.strftime('%H:%M:%S')}] Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
 
             # Load this batch using multi-connection approach
             batch_df = self.load_batch_with_connections(
@@ -66,11 +73,11 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             if batch_df is not None:
-                # batch_df = batch_df.persist()
-                batch_count = batch_df.count()
-                print(f"    Batch {batch_num} loaded: {batch_count:,} rows")
-
-                if batch_count > 0:
+                batch_end = datetime.now()
+                batch_duration = (batch_end - batch_start).total_seconds()
+                print(
+                    f"    [{batch_end.strftime('%H:%M:%S')}] Batch {batch_num} loaded and cached (took {batch_duration:.1f}s)")
+                if batch_df.count() > 0:  # This uses cached count
                     batches.append(batch_df)
             else:
                 print(f"    Batch {batch_num} failed, skipping")
@@ -78,9 +85,15 @@ class ReadServiceRawJoinMultiConnectionBatches:
             current_lower = current_upper + 1
             batch_num += 1
 
+        loading_end = datetime.now()
+        loading_duration = (loading_end - loading_start).total_seconds()
+        print(f"[{loading_end.strftime('%Y-%m-%d %H:%M:%S')}] Batch loading phase completed in {loading_duration:.1f}s")
+        print(f"Loaded {len(batches)} batches successfully")
+
         # Final union of all batches using safe method
         if batches:
-            print(f"  Safely combining {len(batches)} final batches...")
+            union_start = datetime.now()
+            print(f"  [{union_start.strftime('%H:%M:%S')}] Safely combining {len(batches)} final batches...")
             result_df = self.safe_union_all_batches(batches)
 
             if result_df is not None:
@@ -88,7 +101,15 @@ class ReadServiceRawJoinMultiConnectionBatches:
                 result_df = result_df.repartition(16, "package_name").cache()
 
                 total_count = result_df.count()
-                print(f"  ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
+
+                end_time = datetime.now()
+                total_duration = (end_time - start_time).total_seconds()
+                union_duration = (end_time - union_start).total_seconds()
+
+                print(
+                    f"  [{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
+                print(f"  Final union took: {union_duration:.1f}s")
+                print(f"  Total data loading time: {total_duration:.1f}s ({total_duration / 60:.1f} minutes)")
 
                 # Show sample
                 print("  Sample of joined data:")
@@ -102,6 +123,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
         else:
             print("  ⚠️  No data loaded")
             return self.get_empty_dataframe(spark)
+
 
     def load_batch_with_connections(self, spark: SparkSession, start_id: int, end_id: int,
                                     num_connections: int, batch_num: int, raw_query: str,

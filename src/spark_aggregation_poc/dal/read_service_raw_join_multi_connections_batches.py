@@ -17,7 +17,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
     def read_findings_data(self, spark: SparkSession,
                            batch_size: int = 3200000,  # Total batch size across 4 connections
                            connections_per_batch: int = 32,
-                           consolidation_frequency: int = 2000,
                            min_id_override: int = None) -> DataFrame:
         """
         Read data using PostgreSQL join query with multi-connection batching.
@@ -27,7 +26,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
         print(f"=== Reading data using multi-connection batching ===")
         print(f"Batch size: {batch_size:,} IDs per batch")
         print(f"Connections per batch: {connections_per_batch}")
-        print(f"Consolidation frequency: every {consolidation_frequency} batches")
 
         # Get the raw join query
         raw_query = self.get_join_query()
@@ -79,16 +77,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
             current_lower = current_upper + 1
             batch_num += 1
-
-            # CRITICAL: Consolidate periodically to prevent recursion issues
-            if len(batches) >= consolidation_frequency:
-                print(f"    Consolidating {len(batches)} batches to prevent recursion...")
-                consolidated_df = self.safe_union_all_batches(batches)  # ← Use tree-reduction
-                if consolidated_df is not None:
-                    batches = [consolidated_df]
-                    print(f"    ✓ Consolidated to 1 batch")
-                else:
-                    print(f"    ⚠️ Consolidation failed, continuing with individual batches")
 
         # Final union of all batches using safe method
         if batches:

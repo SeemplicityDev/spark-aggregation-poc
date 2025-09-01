@@ -15,18 +15,18 @@ class AggregationServiceMultiRulesNoWrite():
 
     def aggregate(self, df: DataFrame) -> DataFrame:
         """
-        Process rules from carlsberg_rules.json in order without filtering processed IDs
+        Process rules from unilever_rules.json in order without filtering processed IDs
         """
-        print("=== Carlsberg Rules-Based Aggregation (No ID Filtering) ===")
+        print("=== Unilever Rules-Based Aggregation (No ID Filtering) ===")
 
         # Load rules
         rules = self.load_rules()
-        print(f"Processing {len(rules)} Carlsberg rules")
+        print(f"Processing {len(rules)} Unilever rules")
 
         all_results = []
 
         for rule_idx, rule in enumerate(rules, 1):
-            print(f"\n--- Carlsberg Rule {rule_idx}/{len(rules)} ---")
+            print(f"\n--- Unilever Rule {rule_idx}/{len(rules)} ---")
 
             data_count = df.count()
             print(f"Processing full dataset: {data_count:,} rows")
@@ -58,7 +58,7 @@ class AggregationServiceMultiRulesNoWrite():
 
         # 4. Combine all results
         if all_results:
-            print(f"\n=== Final Carlsberg Results ===")
+            print(f"\n=== Final Unilever Results ===")
             print(f"Combining results from {len(all_results)} rules")
 
             # Union all rule results
@@ -76,9 +76,9 @@ class AggregationServiceMultiRulesNoWrite():
             return df.limit(0)
 
     def load_rules(self) -> List[Dict]:
-        """Load rules from carlsberg_rules.json file"""
+        """Load rules from unilever_rules.json file"""
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        rules_path = os.path.join(current_dir, "..", "data", "carlsberg_rules.json")
+        rules_path = os.path.join(current_dir, "..", "data", "unilever_rules.json")
 
         with open(os.path.normpath(rules_path), 'r') as f:
             return json.load(f)
@@ -113,9 +113,7 @@ class AggregationServiceMultiRulesNoWrite():
         Remove table prefixes from SQL filter condition
 
         Examples:
-        - "findings.source='Qualys'" → "source='Qualys'"
-        - "findings_scores.severity=3" → "severity=3"
-        - "not findings.id in (select finding_id from carlsberg.tickets)" → "not finding_id in (select finding_id from tickets)"
+        - "findings.finding_type_str in ('Wiz Vulnerabilities')" -> "finding_type_str in ('Wiz Vulnerabilities')
         """
         cleaned = filter_condition
 
@@ -130,7 +128,6 @@ class AggregationServiceMultiRulesNoWrite():
             'aggregation_groups.',
             'findings_info.',
             'finding_sla_rule_connections.',
-            'carlsberg.',  # Schema prefix
         ]
 
         # Remove table prefixes
@@ -163,7 +160,7 @@ class AggregationServiceMultiRulesNoWrite():
             # Remove "findings." prefix and map to actual column names
             clean_field = field.replace("findings.", "")
 
-            # Map specific Carlsberg fields to actual DataFrame columns
+            # Map specific Unilever fields to actual DataFrame columns
             if clean_field == "cloud_account":
                 columns.append("root_cloud_account")  # Assuming this is the actual column name
             elif clean_field == "main_resource_id":

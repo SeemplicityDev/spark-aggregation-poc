@@ -68,11 +68,11 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = create_read_service_individual_tables_multi_connection_batches.read_findings_data(spark=spark)
+        df = read_service_raw_join_multi_connection_batches.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
         # df.show()
 
-        df_groups_to_findings: DataFrame = aggregation_service_raw_join.aggregate(df)
+        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df)
         print("\n=== Groups to findings ===")
         start = time()
         df_groups_to_findings.show()

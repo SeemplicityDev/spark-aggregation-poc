@@ -113,15 +113,32 @@ class AggregationServiceMultiRulesNoWrite():
         Remove table prefixes from SQL filter condition
 
         Examples:
-        - "findings.finding_type_str in ('Wiz Vulnerabilities')" -> "finding_type_str in ('Wiz Vulnerabilities')
+        - "findings.finding_type_str in ('Wiz Vulnerabilities')" -> "finding_type_str in ('Wiz Vulnerabilities')"
+        - "findings_additional_Data.cve[1]" -> "cve"
         """
         cleaned = filter_condition
+
+        # Handle special PostgreSQL syntax first (before removing table prefixes)
+        special_cases = [
+            # PostgreSQL array access with typo -> Spark column reference
+            ('findings_additional_Data.cve[1]', 'cve'),
+            ('findings_additional_data.cve[1]', 'cve'),
+            # PostgreSQL JSON access -> Spark column reference
+            ("findings_info.remediation ->> 'text'", 'remediation'),
+            ('findings_info.remediation->>', 'remediation'),
+            # Add other special PostgreSQL syntax cases as needed
+        ]
+
+        # Apply special case mappings first
+        for old_syntax, new_syntax in special_cases:
+            cleaned = cleaned.replace(old_syntax, new_syntax)
 
         # Define table prefixes to remove
         table_prefixes = [
             'findings.',
             'findings_scores.',
             'findings_additional_data.',
+            'findings_additional_Data.',  # Handle the typo case too
             'plain_resources.',
             'user_status.',
             'statuses.',

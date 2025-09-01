@@ -131,6 +131,11 @@ class ReadServiceRawJoinMultiConnectionBatches:
                 numPartitions=num_connections
             )
 
+            # CRITICAL FIX: Force immediate materialization to prevent thundering herd
+            batch_df = batch_df.persist()
+            actual_count = batch_df.count()  # This forces execution now, not later
+            print(f"    Batch {batch_num} materialized: {actual_count:,} rows")
+
             return batch_df
 
         except Exception as e:

@@ -243,6 +243,7 @@ class ColumnAggregationUtil:
         # Return combined list
         return engine_aggs + conditional_aggs
 
+    @classmethod
     def _first_by_priority(cls, field_name: str, filter_col: str, filter_value: str):
         """Get first value from highest priority record matching filter"""
         return first(
@@ -250,10 +251,12 @@ class ColumnAggregationUtil:
             ignorenulls=True
         )
 
+    @classmethod
     def _most_common_value(cls, field_name: str):
         """Approximate most common value"""
         return first(col(field_name), ignorenulls=True)
 
+    @classmethod
     def _conditional_aggregations(cls, df: DataFrame):
         """Return aggregations for optional columns that may or may not exist"""
         aggregations = []

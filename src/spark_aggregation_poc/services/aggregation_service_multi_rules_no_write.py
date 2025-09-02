@@ -122,7 +122,7 @@ class AggregationServiceMultiRulesNoWrite():
 
     def clean_filter_condition(self, filter_condition: str) -> str:
         """
-        Remove table prefixes from SQL filter condition
+        Remove table prefixes from SQL filter condition - supports both Carlsberg and Unilever datasets
 
         Examples:
         - "findings.finding_type_str in ('Wiz Vulnerabilities')" -> "finding_type_str in ('Wiz Vulnerabilities')"
@@ -145,7 +145,7 @@ class AggregationServiceMultiRulesNoWrite():
         for old_syntax, new_syntax in special_cases:
             cleaned = cleaned.replace(old_syntax, new_syntax)
 
-        # Define table prefixes to remove
+        # Define table prefixes to remove (supports both datasets)
         table_prefixes = [
             'findings.',
             'findings_scores.',
@@ -163,8 +163,7 @@ class AggregationServiceMultiRulesNoWrite():
         for prefix in table_prefixes:
             cleaned = cleaned.replace(prefix, '')
 
-        # Handle special column name mappings using simple string replacement
-        # Be careful with word boundaries - replace specific patterns
+        # Handle column name mappings for both datasets
         column_mappings = [
             ('cloud_account=', 'root_cloud_account='),
             ('cloud_account ', 'root_cloud_account '),
@@ -183,25 +182,31 @@ class AggregationServiceMultiRulesNoWrite():
         return cleaned
 
     def extract_group_columns(self, group_by_fields: List[str]) -> List[str]:
-        """Convert JSON field names to DataFrame column names"""
+        """Convert JSON field names to DataFrame column names - supports both Carlsberg and Unilever fields"""
         columns = []
         for field in group_by_fields:
             # Remove "findings." prefix and map to actual column names
             clean_field = field.replace("findings.", "")
 
-            # Map specific Unilever fields to actual DataFrame columns
+            # Map fields to actual DataFrame columns (supports both datasets)
             if clean_field == "cloud_account":
-                columns.append("root_cloud_account")  # Assuming this is the actual column name
+                columns.append("root_cloud_account")  # Common mapping for both datasets
             elif clean_field == "main_resource_id":
                 columns.append("main_resource_id")
             elif clean_field == "rule_family":
-                columns.append("rule_family")
+                columns.append("rule_family")  # Available in Carlsberg SQL, may need handling for Unilever
             elif clean_field == "rule_id":
-                columns.append("rule_id")
+                columns.append("rule_id")  # Available in Carlsberg SQL, may need handling for Unilever
             elif clean_field == "package_name":
                 columns.append("package_name")
+            elif clean_field == "source":
+                columns.append("source")  # Available in Carlsberg SQL
+            elif clean_field == "severity":
+                columns.append("severity")  # Available in Carlsberg SQL (findings_scores.severity)
+            elif clean_field == "category":
+                columns.append("category")  # Available in Carlsberg SQL (findings.category)
             else:
-                # Try to use the field as-is
+                # Try to use the field as-is for any other fields
                 columns.append(clean_field)
 
         return columns

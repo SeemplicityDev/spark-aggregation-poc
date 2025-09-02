@@ -4,13 +4,17 @@ from typing import List, Dict
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
-    col, collect_list, count, lit, concat_ws, coalesce, expr
+    col, lit, concat_ws, coalesce, expr
 )
+
+from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.services.column_aggregation_util import ColumnAggregationUtil
 
 
 class AggregationServiceMultiRulesNoWrite():
 
-    def __init__(self):
+    def __init__(self, config: Config):
+        self.config = config
         pass
 
     def aggregate(self, df: DataFrame) -> DataFrame:
@@ -32,7 +36,7 @@ class AggregationServiceMultiRulesNoWrite():
             print(f"Processing full dataset: {data_count:,} rows")
 
             # 1. Apply finding_filter
-            filtered_data = self.apply_sql_filter(df, rule['finding_filter'], rule_idx)
+            filtered_data = self.apply_sql_filter(df, rule, rule_idx)
             filtered_count = filtered_data.count()
             print(f"Data after rule filter: {filtered_count:,} rows")
 
@@ -77,15 +81,23 @@ class AggregationServiceMultiRulesNoWrite():
 
     def load_rules(self) -> List[Dict]:
         """Load rules from unilever_rules.json file"""
+        path: str = "carlsberg_rules.json"
+        # path: str = "unilever_rules.json"
+        if self.config.is_databricks is False:
+            path: str = "unilever_rules_local.json"
+
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        rules_path = os.path.join(current_dir, "..", "data", "unilever_rules.json")
+        rules_path = os.path.join(current_dir, "..", "data", path)
 
         with open(os.path.normpath(rules_path), 'r') as f:
             return json.load(f)
 
-    def apply_sql_filter(self, df: DataFrame, filter_condition: str, rule_idx: int) -> DataFrame:
+    def apply_sql_filter(self, df: DataFrame, rule: dict, rule_idx: int) -> DataFrame:
         """Apply SQL WHERE condition using expr() after removing table prefixes"""
         try:
+            if "finding_filter" not in rule:
+                return df
+            filter_condition: str = rule['finding_filter']
             # Remove table prefixes from the filter condition
             cleaned_filter = self.clean_filter_condition(filter_condition)
 
@@ -207,12 +219,18 @@ class AggregationServiceMultiRulesNoWrite():
         print(f"Grouping by: {valid_columns}")
 
         # Group and aggregate
-        return df.groupBy(*valid_columns).agg(
-            collect_list("finding_id").alias("finding_ids"),
-            collect_list("root_cloud_account").alias("cloud_accounts"),
-            count("finding_id").alias("count"),
-            lit(rule_idx).alias("rule_number")
+        all_aggregations = ColumnAggregationUtil.get_all_aggregations(df, rule_idx)
+        # all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
+
+        result: DataFrame = df.groupBy(*valid_columns).agg(
+            *all_aggregations
+            # collect_list("finding_id").alias("finding_ids"),
+            # collect_list("root_cloud_account").alias("cloud_accounts"),
+            # count("finding_id").alias("count"),
+            # lit(rule_idx).alias("rule_number")
         ).withColumn(
             "group_id",
             concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
         )
+
+        return result

@@ -23,7 +23,6 @@ SELECT
     findings.fix_id as fix_id,
     findings_additional_Data.cve[1] as cve,
     findings.fix_type as fix_type
-
 FROM findings
 LEFT OUTER JOIN finding_sla_rule_connections ON
     findings.id = finding_sla_rule_connections.finding_id
@@ -44,3 +43,5 @@ LEFT OUTER JOIN findings_info ON
 LEFT OUTER JOIN aggregation_rules_findings_excluder ON
     findings.id = aggregation_rules_findings_excluder.finding_id
 WHERE findings.package_name IS NOT NULL
+AND (findings.id <> aggregation_groups.main_finding_id
+OR findings.aggregation_group_id is null)

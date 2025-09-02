@@ -53,5 +53,5 @@ class Factory:
         return AggregationServiceRawJoin()
 
     @classmethod
-    def create_aggregation_service_multi_rules_no_write(cls) -> AggregationServiceMultiRulesNoWrite:
-        return AggregationServiceMultiRulesNoWrite()
+    def create_aggregation_service_multi_rules_no_write(cls, config: Config) -> AggregationServiceMultiRulesNoWrite:
+        return AggregationServiceMultiRulesNoWrite(config=config)

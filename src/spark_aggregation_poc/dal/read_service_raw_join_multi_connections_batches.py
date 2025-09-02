@@ -294,7 +294,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
     def get_join_query(self) -> str:
         """Load the raw join query from file"""
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        sql_file_path = os.path.join(current_dir, "..", "data", "raw_join_query1.sql")
+        sql_file_path = os.path.join(current_dir, "..", "data", "raw_join_query1_carlsberg.sql")
         sql_file_path = os.path.normpath(sql_file_path)
 
         with open(sql_file_path, "r") as f:

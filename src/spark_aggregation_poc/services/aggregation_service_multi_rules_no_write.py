@@ -15,6 +15,7 @@ class AggregationServiceMultiRulesNoWrite():
 
     def __init__(self, config: Config):
         self.config = config
+        self._customer = config.customer
         pass
 
     def aggregate(self, df: DataFrame) -> DataFrame:
@@ -81,10 +82,13 @@ class AggregationServiceMultiRulesNoWrite():
 
     def load_rules(self) -> List[Dict]:
         """Load rules from unilever_rules.json file"""
-        path: str = "carlsberg_rules.json"
-        # path: str = "unilever_rules.json"
+        path: str = "unilever_rules.json"
+        if self._customer == "Carlsberg":
+            path: str = "carlsberg_rules.json"
+        if self._customer == "Unilever":
+            path: str = "unilever_rules.json"
         if self.config.is_databricks is False:
-            path: str = "unilever_rules_local.json"
+            path: str = "rules_local.json"
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         rules_path = os.path.join(current_dir, "..", "data", path)
@@ -224,8 +228,8 @@ class AggregationServiceMultiRulesNoWrite():
         print(f"Grouping by: {valid_columns}")
 
         # Group and aggregate
-        all_aggregations = ColumnAggregationUtil.get_all_aggregations(df, rule_idx)
-        # all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
+        # all_aggregations = ColumnAggregationUtil.get_all_aggregations(df, rule_idx)
+        all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
 
         result: DataFrame = df.groupBy(*valid_columns).agg(
             *all_aggregations

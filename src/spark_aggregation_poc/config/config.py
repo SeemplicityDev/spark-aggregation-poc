@@ -10,6 +10,7 @@ class Config:
     postgres_url: str
     postgres_properties: dict
     is_databricks: bool = False
+    customer: str = None
 
 class ConfigLoader:
     @classmethod

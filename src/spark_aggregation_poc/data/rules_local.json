@@ -1,0 +1,8 @@
+[
+    {
+        "group_by":
+        [
+            "findings.package_name"
+        ]
+    }
+]

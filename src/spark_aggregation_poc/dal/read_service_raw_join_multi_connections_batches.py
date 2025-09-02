@@ -13,6 +13,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
     def __init__(self, config: Config):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
+        self._customer = config.customer
 
     def read_findings_data(self, spark: SparkSession,
                            batch_size: int = 3200000,  # Total batch size across 4 connections
@@ -293,8 +294,13 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
     def get_join_query(self) -> str:
         """Load the raw join query from file"""
+        path: str = "raw_join_query1.sql"
+        if self._customer == "Carlsberg":
+            path: str = "raw_join_query1_carlsberg.sql"
+        if self._customer == "Unilever":
+            path: str = "raw_join_query1_unilever.sql"
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        sql_file_path = os.path.join(current_dir, "..", "data", "raw_join_query1_carlsberg.sql")
+        sql_file_path = os.path.join(current_dir, "..", "data", path)
         sql_file_path = os.path.normpath(sql_file_path)
 
         with open(sql_file_path, "r") as f:

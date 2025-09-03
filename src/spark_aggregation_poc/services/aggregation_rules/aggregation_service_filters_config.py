@@ -38,7 +38,7 @@ class AggregationServiceFiltersConfig:
 
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
-        aggregated_results = []
+        all_results = []
 
         for rule_idx, rule in enumerate(spark_rules):
             print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Type={rule.rule_type}")
@@ -48,6 +48,12 @@ class AggregationServiceFiltersConfig:
                 findings_df,
                 rule.filters_config
             )
+            filtered_count = filtered_df.count()
+            print(f"Data after rule filter: {filtered_count:,} rows")
+
+            if filtered_count == 0:
+                print(f"Rule {rule_idx}: No data matches finding_filter")
+                continue
 
             if rule.group_by:
                 # Apply grouping and aggregation
@@ -57,20 +63,36 @@ class AggregationServiceFiltersConfig:
                     rule_idx,
                     rule.filters_config
                 )
-                aggregated_results.append(grouped_df)
+                group_count = grouped_df.count()
+                if group_count > 0:
+                    print(f"Rule {rule_idx + 1}: Created {group_count} groups")
 
-        # Union all results
-        if aggregated_results:
-            if len(aggregated_results) == 1:
-                return aggregated_results[0]
-            else:
-                # Chain unionByName operations - each call only takes one DataFrame
-                result = aggregated_results[0]
-                for df in aggregated_results[1:]:
-                    result = result.unionByName(df)
-                return result
+                    # 3. Add to results (no ID filtering)
+                    all_results.append(grouped_df)
+
+                    # Show sample
+                    grouped_df.select("group_id", "count", "rule_number").show(3, truncate=False)
+                else:
+                    print(f"Rule {rule_idx + 1}: No groups created")
+
+        if all_results:
+            print(f"\n=== Final Results ===")
+            print(f"Combining results from {len(all_results)} rules")
+
+            # Union all rule results
+            final_result = all_results[0]
+            for result in all_results[1:]:
+                final_result = final_result.union(result)
+
+            total_groups = final_result.count()
+            total_findings = final_result.agg({"count": "sum"}).collect()[0][0]
+            print(f"✓ Final result: {total_groups:,} groups containing {total_findings:,} findings")
+
+            return final_result
         else:
-            return findings_df.limit(0)  # Empty DataFrame
+            print("❌ No groups created by any rule")
+            return df.limit(0)
+
 
     def create_groups_with_filters_config(self, df: DataFrame, group_columns: List[str], rule_idx: int,
                                           filters_config: Dict[str, Any]) -> DataFrame:

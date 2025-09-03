@@ -71,13 +71,13 @@ class ReadServiceRawJoinMultiConnectionBatches:
         all_batches = []
 
         for batch_num in range(1, total_batches + 1):
-            batch_start_time = datetime.now()
-            print(f"🕐 [BATCH START] Batch {batch_num} started at: {batch_start_time.strftime('%H:%M:%S')}")
 
             start_id = min_id + (batch_num - 1) * batch_size
             end_id = min(start_id + batch_size - 1, max_id)  # Ensure we don't exceed max_id
 
             print(f"\n--- Batch {batch_num}/{total_batches} ---")
+            batch_start_time = datetime.now()
+            print(f"🕐 [BATCH START] Batch {batch_num} started at: {batch_start_time.strftime('%H:%M:%S')}")
             print(f"📥 Reading batch {batch_num}: findings.id {start_id:,} to {end_id:,}")
 
             # Load batch

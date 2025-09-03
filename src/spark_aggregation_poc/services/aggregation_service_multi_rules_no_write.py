@@ -33,9 +33,9 @@ class AggregationServiceMultiRulesNoWrite():
 
         for rule_idx, rule in enumerate(rules, 1):
             rule_start_time = datetime.now()
-            print(f"🕐 [RULE START] Rule {rule_idx} started at: {rule_start_time.strftime('%H:%M:%S')}")
 
             print(f"\n--- Rule {rule_idx}/{len(rules)} ---")
+            print(f"🕐 [RULE START] Rule {rule_idx} started at: {rule_start_time.strftime('%H:%M:%S')}")
 
             data_count = df.count()
             print(f"Processing full dataset: {data_count:,} rows")

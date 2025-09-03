@@ -61,8 +61,14 @@ class AggregationServiceFiltersConfig:
 
         # Union all results
         if aggregated_results:
-            return aggregated_results[0].unionByName(*aggregated_results[1:]) if len(aggregated_results) > 1 else \
-            aggregated_results[0]
+            if len(aggregated_results) == 1:
+                return aggregated_results[0]
+            else:
+                # Chain unionByName operations - each call only takes one DataFrame
+                result = aggregated_results[0]
+                for df in aggregated_results[1:]:
+                    result = result.unionByName(df)
+                return result
         else:
             return findings_df.limit(0)  # Empty DataFrame
 

@@ -8,13 +8,14 @@ from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.main import run_aggregation_from_dbx
 
 
-config: Config = Config(postgres_url="jdbc:postgresql://<host>>:<port>/postgres?currentSchema=unilever",
+config: Config = Config(postgres_url="jdbc:postgresql://vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com:54325/postgres?currentSchema=unilever",
                         postgres_properties={
                             "user": "postgres",
                             "password": "4HSve3Xr9V0qyWM4",
                             "driver": "org.postgresql.Driver"
                         },
-                        is_databricks = True
+                        is_databricks = True,
+                        customer="Unilever"
 )
 # Cell 1: Monitor cluster configuration
 print("=== Cluster Configuration ===")

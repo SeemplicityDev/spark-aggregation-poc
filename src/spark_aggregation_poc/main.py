@@ -76,7 +76,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         print(f"Read time: {time() - start:.2f} seconds")
         # df.show()
 
-        df_groups_to_findings: DataFrame = aggregation_service_filters_config.aggregate(spark=spark, findings_df=df)
+        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df=df)
         print("\n=== Groups to findings Aggregation ===")
         start = time()
         df_groups_to_findings.show()

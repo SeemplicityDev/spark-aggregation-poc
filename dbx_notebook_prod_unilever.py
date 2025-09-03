@@ -14,7 +14,8 @@ config: Config = Config(postgres_url="jdbc:postgresql://vpce-0ab78c002b187f211-1
                             "password": "T66AWCNJGW!!jqML",
                             "driver": "org.postgresql.Driver"
                         },
-                        is_databricks = True
+                        is_databricks = True,
+                        customer = "Unilever"
 )
 # Cell 1: Monitor cluster configuration
 print("=== Cluster Configuration ===")

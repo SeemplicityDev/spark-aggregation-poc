@@ -9,6 +9,11 @@ from spark_aggregation_poc.dal.read_service_raw_join_multi_connections import Re
 from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches import \
     ReadServiceRawJoinMultiConnectionBatches
 from spark_aggregation_poc.dal.write_service import WriteService
+from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filters_config import \
+    AggregationServiceFiltersConfig
+from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
+from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader
+from spark_aggregation_poc.services.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
 from spark_aggregation_poc.services.aggregation_service import AggregationService
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
@@ -41,6 +46,11 @@ class Factory:
         return ReadServiceRaw(config=config)
 
     @classmethod
+    def create_read_service_filters_config(cls, config: Config) -> ReadServiceFiltersConfig:
+        rule_loader = RuleLoader(config)
+        return ReadServiceFiltersConfig(config=config, rule_loader=rule_loader)
+
+    @classmethod
     def create_write_service(cls, config: Config) -> WriteService:
         return WriteService(config=config)
 
@@ -55,3 +65,9 @@ class Factory:
     @classmethod
     def create_aggregation_service_multi_rules_no_write(cls, config: Config) -> AggregationServiceMultiRulesNoWrite:
         return AggregationServiceMultiRulesNoWrite(config=config)
+
+    @classmethod
+    def create_aggregation_service_filters_config(cls, config: Config) -> AggregationServiceFiltersConfig:
+        rule_loader = RuleLoader(config)
+        filters_config_processor = FiltersConfigProcessor()
+        return AggregationServiceFiltersConfig(rule_loader=rule_loader, filters_config_processor=filters_config_processor)

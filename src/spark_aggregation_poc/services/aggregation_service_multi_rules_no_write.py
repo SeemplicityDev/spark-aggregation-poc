@@ -63,7 +63,7 @@ class AggregationServiceMultiRulesNoWrite():
 
         # 4. Combine all results
         if all_results:
-            print(f"\n=== Final Unilever Results ===")
+            print(f"\n=== Final Results ===")
             print(f"Combining results from {len(all_results)} rules")
 
             # Union all rule results

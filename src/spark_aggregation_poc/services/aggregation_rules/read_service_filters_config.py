@@ -1,36 +1,217 @@
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Set
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader
 
 
-class ReadServiceRawJoinMultiConnectionBatches:
+class ReadServiceFiltersConfig():
    
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, rule_loader: RuleLoader):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
         self._customer = config.customer
+        self.rule_loader = rule_loader
 
+    def extract_columns_from_filters_config(self, spark: SparkSession) -> Set[str]:
+        """Extract all column names referenced in FiltersConfig from all rules"""
+        try:
+            # Load aggregation rules
+            rules_df = self.rule_loader.load_aggregation_rules(spark)
+            spark_rules = self.rule_loader.parse_rules_to_spark_format(rules_df)
+
+            referenced_columns = set()
+
+            for rule in spark_rules:
+                if rule.filters_config:
+                    # Extract column names from filters_config
+                    columns = self._extract_columns_from_filter_obj(rule.filters_config)
+                    referenced_columns.update(columns)
+
+                # Also extract from group_by fields
+                if rule.group_by:
+                    for group_field in rule.group_by:
+                        # Remove table prefix (e.g., "findings.source" -> "source")
+                        clean_field = group_field.split('.')[-1]
+                        referenced_columns.add(clean_field)
+
+            print(f"📋 Columns needed from FiltersConfig: {sorted(referenced_columns)}")
+            return referenced_columns
+
+        except Exception as e:
+            print(f"⚠️ Could not extract columns from FiltersConfig: {e}")
+            print("📋 Using default column set")
+            # Return default columns if extraction fails
+            return {"source", "category", "rule_family", "rule_id", "severity", "finding_type_str"}
+
+    def _extract_columns_from_filter_obj(self, filter_obj: dict) -> Set[str]:
+        """Recursively extract field names from a filter object"""
+        columns = set()
+
+        if isinstance(filter_obj, dict):
+            # Check if this is a leaf filter condition
+            if "field" in filter_obj:
+                columns.add(filter_obj["field"])
+
+            # Check for nested operands
+            if "operands" in filter_obj and isinstance(filter_obj["operands"], list):
+                for operand in filter_obj["operands"]:
+                    columns.update(self._extract_columns_from_filter_obj(operand))
+
+            # Check filtersjson
+            if "filtersjson" in filter_obj:
+                columns.update(self._extract_columns_from_filter_obj(filter_obj["filtersjson"]))
+
+        return columns
+
+    def build_dynamic_join_query(self, spark: SparkSession) -> str:
+        """Build join query with columns dynamically determined from FiltersConfig"""
+
+        # Get columns needed from FiltersConfig
+        dynamic_columns = self.extract_columns_from_filters_config(spark)
+
+        # Base columns that are always needed
+        base_columns = [
+            "findings.id as finding_id",
+            "findings.package_name",
+            "findings.main_resource_id",
+            "findings.aggregation_group_id",
+            "finding_sla_rule_connections.finding_id as sla_connection_id",
+            "plain_resources.id as resource_id",
+            "plain_resources.cloud_account as root_cloud_account",
+            "plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name",
+            "findings_scores.finding_id as score_finding_id",
+            "user_status.id as user_status_id",
+            "user_status.actual_status_key",
+            "findings_additional_data.finding_id as additional_data_id",
+            "statuses.key as status_key",
+            "aggregation_groups.id as existing_group_id",
+            "aggregation_groups.main_finding_id as existing_main_finding_id",
+            "aggregation_groups.group_identifier as existing_group_identifier",
+            "aggregation_groups.is_locked",
+            "findings_info.id as findings_info_id"
+        ]
+
+        # Map dynamic columns to their SQL expressions
+        column_mappings = {
+            "source": "findings.source as source",
+            "category": "findings.category as category",
+            "rule_family": "findings.rule_family as rule_family",
+            "rule_id": "findings.rule_id as rule_id",
+            "severity": "findings_scores.severity as severity",
+            "finding_type_str": "findings.finding_type_str as finding_type_str",
+            "fix_subtype": "findings.fix_subtype as fix_subtype",
+            "fix_id": "findings.fix_id as fix_id",
+            "fix_type": "findings.fix_type as fix_type",
+            "cve": "findings_additional_data.cve[1] as cve",
+            "score": "findings_scores.score as score",
+            "user_score": "findings_scores.user_score as user_score",
+            "normalized_score": "findings_scores.normalized_score as normalized_score",
+            "factorized_score": "findings_scores.factorized_score as factorized_score",
+            "original_score": "findings.original_score as original_score",
+            "last_reported_time": "findings.last_reported_time as last_reported_time",
+            "discovered_time": "findings.discovered_time as discovered_time",
+            "created_time": "findings.created_time as created_time"
+        }
+
+        # Add dynamic columns based on FiltersConfig needs
+        dynamic_column_expressions = []
+        for col_name in dynamic_columns:
+            if col_name in column_mappings:
+                dynamic_column_expressions.append(column_mappings[col_name])
+            else:
+                # Fallback: try to guess the table
+                if col_name in ["score", "severity", "user_score", "normalized_score", "factorized_score"]:
+                    dynamic_column_expressions.append(f"findings_scores.{col_name} as {col_name}")
+                elif col_name in ["cve", "package_version", "fixed_versions"]:
+                    dynamic_column_expressions.append(f"findings_additional_data.{col_name} as {col_name}")
+                else:
+                    # Default to findings table
+                    dynamic_column_expressions.append(f"findings.{col_name} as {col_name}")
+
+        # Combine all columns
+        all_columns = base_columns + dynamic_column_expressions
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_columns = []
+        for col in all_columns:
+            col_alias = col.split(" as ")[-1] if " as " in col else col
+            if col_alias not in seen:
+                seen.add(col_alias)
+                unique_columns.append(col)
+
+        print(f"📊 Generated query with {len(unique_columns)} columns")
+        print(f"🔧 Dynamic columns added: {sorted([col.split(' as ')[-1] for col in dynamic_column_expressions])}")
+
+        # Build the complete query - fix f-string backslash issue
+        column_separator = ',\n    '  # Move the separator outside the f-string
+        columns_joined = column_separator.join(unique_columns)
+
+        query = f"""
+        SELECT
+            {columns_joined}
+        FROM findings
+        LEFT OUTER JOIN finding_sla_rule_connections ON
+            findings.id = finding_sla_rule_connections.finding_id
+        JOIN plain_resources ON
+            findings.main_resource_id = plain_resources.id
+        JOIN findings_scores ON
+            findings.id = findings_scores.finding_id
+        JOIN user_status ON
+            user_status.id = findings.id
+        LEFT OUTER JOIN findings_additional_data ON
+            findings.id = findings_additional_data.finding_id
+        JOIN statuses ON
+            statuses.key = user_status.actual_status_key
+        LEFT OUTER JOIN aggregation_groups ON
+            findings.aggregation_group_id = aggregation_groups.id
+        LEFT OUTER JOIN findings_info ON
+            findings_info.id = findings.id
+        LEFT OUTER JOIN aggregation_rules_findings_excluder ON
+            findings.id = aggregation_rules_findings_excluder.finding_id
+        WHERE findings.package_name IS NOT NULL
+        AND (findings.id <> aggregation_groups.main_finding_id
+        OR findings.aggregation_group_id is null)"""
+
+        return query.strip()
+
+    def get_join_query(self, spark: SparkSession = None) -> str:
+        """Load the join query - either from file or build dynamically"""
+
+        # If spark session is provided, build dynamic query
+        if spark is not None:
+            try:
+                return self.build_dynamic_join_query(spark)
+            except Exception as e:
+                print(f"⚠️ Could not build dynamic query: {e}")
+                print("📁 Falling back to static query file")
+
+        # Fallback: load from static file
+        path: str = "raw_join_query1.sql"
+        if self._customer == "Carlsberg":
+            path: str = "raw_join_query1_carlsberg.sql"
+        if self._customer == "Unilever":
+            path: str = "raw_join_query1_unilever.sql"
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sql_file_path = os.path.join(current_dir, "..", "data", path)
+        sql_file_path = os.path.normpath(sql_file_path)
+
+        with open(sql_file_path, "r") as f:
+            content = f.read().strip()
+
+        return content
 
     def read_findings_data(self, spark: SparkSession,
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = 20000000) -> DataFrame:  # Add max_id_override parameter
-        """
-        Read data using PostgreSQL join query with multi-connection batching.
-
-        Args:
-            spark: SparkSession
-            batch_size: Size of each batch
-            connections_per_batch: Number of parallel connections per batch
-            min_id_override: Override minimum finding_id (optional)
-            max_id_override: Override maximum finding_id - stop reading after this ID (optional)
-        """
+                           max_id_override: int = 50000000) -> DataFrame:
+        """Read data using PostgreSQL join query with multi-connection batching."""
         from datetime import datetime
 
         start_time = datetime.now()
@@ -45,7 +226,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
         if max_id_override:
             original_max_id = max_id
-            max_id = min(max_id, max_id_override)  # Use the smaller of the two
+            max_id = min(max_id, max_id_override)
             print(f"🔧 Overriding max_id to: {max_id:,} (original: {original_max_id:,})")
 
             if max_id_override < original_max_id:
@@ -58,8 +239,9 @@ class ReadServiceRawJoinMultiConnectionBatches:
             print(f"❌ Invalid ID range: min_id ({min_id:,}) > max_id ({max_id:,})")
             return spark.createDataFrame([], schema=None)
 
-        # Load raw query
-        raw_query = self.get_join_query()
+        # Load raw query with dynamic columns based on FiltersConfig
+        print("🔄 Building dynamic join query based on FiltersConfig...")
+        raw_query = self.get_join_query(spark)  # Pass spark session for dynamic query
 
         # Calculate batches based on the (possibly limited) range
         total_ids = max_id - min_id + 1
@@ -74,7 +256,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             batch_start_time = datetime.now()
 
             start_id = min_id + (batch_num - 1) * batch_size
-            end_id = min(start_id + batch_size - 1, max_id)  # Ensure we don't exceed max_id
+            end_id = min(start_id + batch_size - 1, max_id)
 
             print(f"\n--- Batch {batch_num}/{total_batches} ---")
             print(f"📥 Reading batch {batch_num}: findings.id {start_id:,} to {end_id:,}")
@@ -120,125 +302,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
         else:
             print("❌ No batches loaded successfully")
             return spark.createDataFrame([], schema=None)
-
-    # def read_findings_data(self, spark: SparkSession,
-    #                        batch_size: int = 3200000,  # Total batch size across 4 connections
-    #                        connections_per_batch: int = 32,
-    #                        min_id_override: int = None,
-    #                        max_id_override: int = None) -> DataFrame:
-    #     """
-    #     Read data using PostgreSQL join query with multi-connection batching.
-    #     Uses safe union methods to handle thousands of batches without recursion issues.
-    #     """
-    #     from datetime import datetime
-    #
-    #     start_time = datetime.now()
-    #     print(f"=== [{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting data loading ===")
-    #     print(f"Batch size: {batch_size:,} IDs per batch")
-    #     print(f"Connections per batch: {connections_per_batch}")
-    #
-    #     # Get the raw join query
-    #     raw_query = self.get_join_query()
-    #     print("Base join query loaded from raw_join_query1.sql")
-    #
-    #     # Get findings ID bounds for batching
-    #     print("Getting findings ID bounds for batching...")
-    #     min_id, max_id = self.get_id_bounds(spark)
-    #
-    #     # Override min_id if specified for testing
-    #     if min_id_override is not None:
-    #         min_id = max(min_id, min_id_override)
-    #         print(f"Testing mode: starting min ID from {min_id:,} to {max_id:,}")
-    #
-    #     if max_id_override:
-    #         original_max_id = max_id
-    #         max_id = min(max_id, max_id_override)  # Use the smaller of the two
-    #         print(f"🔧 Overriding max_id to: {max_id:,} (original: {original_max_id:,})")
-    #
-    #         if max_id_override < original_max_id:
-    #             print(f"⚠️  Stopping early - will only process up to finding_id {max_id:,}")
-    #
-    #     total_range = max_id - min_id + 1
-    #     estimated_batches = (total_range + batch_size - 1) // batch_size
-    #
-    #     print(f"Findings ID range: {min_id:,} to {max_id:,} ({total_range:,} IDs)")
-    #     print(f"Estimated batches: {estimated_batches}")
-    #
-    #     # Get optimized properties
-    #     optimized_properties = self.get_optimized_properties()
-    #
-    #     # Read in batches
-    #     loading_start = datetime.now()
-    #     print(f"[{loading_start.strftime('%Y-%m-%d %H:%M:%S')}] Starting batch loading phase...")
-    #
-    #     batches = []
-    #     current_lower = min_id
-    #     batch_num = 1
-    #
-    #     while current_lower <= max_id:
-    #         current_upper = min(current_lower + batch_size - 1, max_id)
-    #
-    #         batch_start = datetime.now()
-    #         print(
-    #             f"  [{batch_start.strftime('%H:%M:%S')}] Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
-    #
-    #         # Load this batch using multi-connection approach
-    #         batch_df = self.load_batch_with_connections(
-    #             spark, current_lower, current_upper, connections_per_batch,
-    #             batch_num, raw_query, optimized_properties
-    #         )
-    #
-    #         if batch_df is not None:
-    #             batch_end = datetime.now()
-    #             batch_duration = (batch_end - batch_start).total_seconds()
-    #             print(
-    #                 f"    [{batch_end.strftime('%H:%M:%S')}] Batch {batch_num} loaded and cached (took {batch_duration:.1f}s)")
-    #             if batch_df.count() > 0:  # This uses cached count
-    #                 batches.append(batch_df)
-    #         else:
-    #             print(f"    Batch {batch_num} failed, skipping")
-    #
-    #         current_lower = current_upper + 1
-    #         batch_num += 1
-    #
-    #     loading_end = datetime.now()
-    #     loading_duration = (loading_end - loading_start).total_seconds()
-    #     print(f"[{loading_end.strftime('%Y-%m-%d %H:%M:%S')}] Batch loading phase completed in {loading_duration:.1f}s")
-    #     print(f"Loaded {len(batches)} batches successfully")
-    #
-    #     # Final union of all batches using safe method
-    #     if batches:
-    #         union_start = datetime.now()
-    #         print(f"  [{union_start.strftime('%H:%M:%S')}] Safely combining {len(batches)} final batches...")
-    #         result_df = self.safe_union_all_batches(batches)
-    #
-    #         if result_df is not None:
-    #             # Final optimization
-    #             result_df = result_df.repartition(16, "package_name").cache()
-    #
-    #             total_count = result_df.count()
-    #
-    #             end_time = datetime.now()
-    #             total_duration = (end_time - start_time).total_seconds()
-    #             union_duration = (end_time - union_start).total_seconds()
-    #
-    #             print(
-    #                 f"  [{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
-    #             print(f"  Final union took: {union_duration:.1f}s")
-    #             print(f"  Total data loading time: {total_duration:.1f}s ({total_duration / 60:.1f} minutes)")
-    #
-    #             # Show sample
-    #             print("  Sample of joined data:")
-    #             result_df.persist()
-    #             result_df.show(5)
-    #
-    #             return result_df
-    #         else:
-    #             print("  ❌ Failed to combine batches")
-    #             return self.get_empty_dataframe(spark)
-    #     else:
-    #         print("  ⚠️  No data loaded")
-    #         return self.get_empty_dataframe(spark)
 
 
     def load_batch_with_connections(self, spark: SparkSession, start_id: int, end_id: int,
@@ -407,21 +470,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
         })
         return optimized_properties
 
-    def get_join_query(self) -> str:
-        """Load the raw join query from file"""
-        path: str = "raw_join_query1.sql"
-        if self._customer == "Carlsberg":
-            path: str = "raw_join_query1_carlsberg.sql"
-        if self._customer == "Unilever":
-            path: str = "raw_join_query1_unilever.sql"
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        sql_file_path = os.path.join(current_dir, "..", "data", path)
-        sql_file_path = os.path.normpath(sql_file_path)
-
-        with open(sql_file_path, "r") as f:
-            content = f.read().strip()
-
-        return content
 
     def get_empty_dataframe(self, spark: SparkSession) -> DataFrame:
         """Return empty DataFrame with correct schema"""

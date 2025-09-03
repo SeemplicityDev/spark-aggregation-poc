@@ -9,11 +9,13 @@ from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
-from spark_aggregation_poc.dal.read_service_raw_join_multi_connections import ReadServiceRawJoinMultiConnection
 from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches import \
     ReadServiceRawJoinMultiConnectionBatches
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
+from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filters_config import \
+    AggregationServiceFiltersConfig
+from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_service import AggregationService
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
@@ -60,10 +62,12 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = app_context.read_service_raw_join_multi_connection_batches
         create_read_service_individual_tables_multi_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = app_context.read_service_individual_tables_connection_batches
         read_service_raw: ReadServiceRaw = app_context.read_service_raw
+        read_service_filters_config: ReadServiceFiltersConfig = app_context.read_service_filters_config
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
         aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
         aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite = app_context.aggregation_service_multi_rules_no_write
+        aggregation_service_filters_config: AggregationServiceFiltersConfig = app_context.aggregation_service_filters_config
 
         from time import time
 
@@ -72,8 +76,8 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         print(f"Read time: {time() - start:.2f} seconds")
         # df.show()
 
-        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df)
-        print("\n=== Groups to findings ===")
+        df_groups_to_findings: DataFrame = aggregation_service_filters_config.aggregate(spark=spark, findings_df=df)
+        print("\n=== Groups to findings Aggregation ===")
         start = time()
         df_groups_to_findings.show()
         print(f"Transform time: {time() - start:.2f} seconds")

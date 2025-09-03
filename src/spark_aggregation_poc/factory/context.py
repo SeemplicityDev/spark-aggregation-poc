@@ -12,6 +12,9 @@ from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches i
     ReadServiceRawJoinMultiConnectionBatches
 from spark_aggregation_poc.dal.write_service import WriteService
 from spark_aggregation_poc.factory.factory import Factory
+from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filters_config import \
+    AggregationServiceFiltersConfig
+from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_service import AggregationService
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
@@ -26,10 +29,12 @@ class AppContext:
     read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches
     read_service_individual_tables_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches
     read_service_raw: ReadServiceRaw
+    read_service_filters_config: ReadServiceFiltersConfig
     write_service: WriteService
     aggregation_service: AggregationService
     aggregation_service_raw_join: AggregationServiceRawJoin
     aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite
+    aggregation_service_filters_config: AggregationServiceFiltersConfig
 
 def build_app_context(config: Config = None) -> AppContext:
     if config is None:
@@ -42,9 +47,11 @@ def build_app_context(config: Config = None) -> AppContext:
     read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = Factory.create_read_service_raw_join_multi_connection_batches(config)
     read_service_individual_tables_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = Factory.create_read_service_individual_tables_multi_connection_batches(config)
     read_service_raw: ReadServiceRaw = Factory.create_read_service_raw(config)
+    read_service_filters_config: ReadServiceFiltersConfig = Factory.create_read_service_filters_config(config)
     write_service: WriteService = Factory.create_write_service(config)
     aggregation_service: AggregationService = Factory.create_aggregation_service()
     aggregation_service_raw_join: AggregationServiceRawJoin = Factory.create_aggregation_service_raw_join()
     aggregation_service_multi_rule_no_write: AggregationServiceMultiRulesNoWrite = Factory.create_aggregation_service_multi_rules_no_write(config)
+    aggregation_service_filters_config: AggregationServiceFiltersConfig = Factory.create_aggregation_service_filters_config(config)
     return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw_join_multi_connection_batches, read_service_individual_tables_connection_batches,
-                      read_service_raw, write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write)
+                      read_service_raw, read_service_filters_config, write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write, aggregation_service_filters_config)

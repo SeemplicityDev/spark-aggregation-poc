@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from typing import List, Dict
 
 from pyspark.sql import DataFrame
@@ -31,6 +32,9 @@ class AggregationServiceMultiRulesNoWrite():
         all_results = []
 
         for rule_idx, rule in enumerate(rules, 1):
+            rule_start_time = datetime.now()
+            print(f"🕐 [RULE START] Rule {rule_idx} started at: {rule_start_time.strftime('%H:%M:%S')}")
+
             print(f"\n--- Rule {rule_idx}/{len(rules)} ---")
 
             data_count = df.count()

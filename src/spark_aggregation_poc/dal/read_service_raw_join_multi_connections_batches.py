@@ -20,7 +20,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = None) -> DataFrame:  # Add max_id_override parameter
+                           max_id_override: int = 10000000) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
 
@@ -72,6 +72,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
         for batch_num in range(1, total_batches + 1):
             batch_start_time = datetime.now()
+            print(f"🕐 [BATCH START] Batch {batch_num} started at: {batch_start_time.strftime('%H:%M:%S')}")
 
             start_id = min_id + (batch_num - 1) * batch_size
             end_id = min(start_id + batch_size - 1, max_id)  # Ensure we don't exceed max_id
@@ -101,6 +102,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
         # Final union
         print(f"\n🔗 Combining {len(all_batches)} batches...")
         combine_start_time = datetime.now()
+        print(f"🕐 [UNION START] Union started at: {combine_start_time.strftime('%H:%M:%S')}")
 
         if all_batches:
             final_df = self.safe_union_all_batches(all_batches)

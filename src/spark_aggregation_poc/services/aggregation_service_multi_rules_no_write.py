@@ -22,7 +22,7 @@ class AggregationServiceMultiRulesNoWrite():
         """
         Process rules from unilever_rules.json in order without filtering processed IDs
         """
-        print("=== Unilever Rules-Based Aggregation (No ID Filtering) ===")
+        print("=== Rules-Based Aggregation (No ID Filtering) ===")
 
         # Load rules
         rules = self.load_rules()
@@ -31,7 +31,7 @@ class AggregationServiceMultiRulesNoWrite():
         all_results = []
 
         for rule_idx, rule in enumerate(rules, 1):
-            print(f"\n--- Unilever Rule {rule_idx}/{len(rules)} ---")
+            print(f"\n--- Rule {rule_idx}/{len(rules)} ---")
 
             data_count = df.count()
             print(f"Processing full dataset: {data_count:,} rows")

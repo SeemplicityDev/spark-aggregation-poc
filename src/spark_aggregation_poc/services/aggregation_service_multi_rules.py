@@ -18,7 +18,7 @@ class AggregationServiceMultiRules():
         """
         Process rules from unilever_rules.json in order, saving results to PostgreSQL after each rule
         """
-        print("=== Unilever PostgreSQL-Backed Aggregation ===")
+        print("=== PostgreSQL-Backed Aggregation ===")
 
         # Initialize tables
         self.initialize_tables(df.sparkSession)

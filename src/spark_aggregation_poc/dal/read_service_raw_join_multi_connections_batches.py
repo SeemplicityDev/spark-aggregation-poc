@@ -15,115 +15,230 @@ class ReadServiceRawJoinMultiConnectionBatches:
         self.postgres_url = config.postgres_url
         self._customer = config.customer
 
+
     def read_findings_data(self, spark: SparkSession,
-                           batch_size: int = 3200000,  # Total batch size across 4 connections
+                           batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           min_id_override: int = None) -> DataFrame:
+                           min_id_override: int = None,
+                           max_id_override: int = 50000000) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
-        Uses safe union methods to handle thousands of batches without recursion issues.
+
+        Args:
+            spark: SparkSession
+            batch_size: Size of each batch
+            connections_per_batch: Number of parallel connections per batch
+            min_id_override: Override minimum finding_id (optional)
+            max_id_override: Override maximum finding_id - stop reading after this ID (optional)
         """
         from datetime import datetime
 
         start_time = datetime.now()
-        print(f"=== [{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting data loading ===")
-        print(f"Batch size: {batch_size:,} IDs per batch")
-        print(f"Connections per batch: {connections_per_batch}")
+        print(f"🚀 Starting data load at: {start_time.strftime('%H:%M:%S')}")
 
-        # Get the raw join query
-        raw_query = self.get_join_query()
-        print("Base join query loaded from raw_join_query1.sql")
-
-        # Get findings ID bounds for batching
-        print("Getting findings ID bounds for batching...")
+        # Get ID bounds and apply overrides
         min_id, max_id = self.get_id_bounds(spark)
 
-        # Override min_id if specified for testing
-        if min_id_override is not None:
-            min_id = max(min_id, min_id_override)
-            print(f"Testing mode: starting min ID from {min_id:,} to {max_id:,}")
+        if min_id_override:
+            min_id = min_id_override
+            print(f"🔧 Overriding min_id to: {min_id:,}")
 
-        total_range = max_id - min_id + 1
-        estimated_batches = (total_range + batch_size - 1) // batch_size
+        if max_id_override:
+            original_max_id = max_id
+            max_id = min(max_id, max_id_override)  # Use the smaller of the two
+            print(f"🔧 Overriding max_id to: {max_id:,} (original: {original_max_id:,})")
 
-        print(f"Findings ID range: {min_id:,} to {max_id:,} ({total_range:,} IDs)")
-        print(f"Estimated batches: {estimated_batches}")
+            if max_id_override < original_max_id:
+                print(f"⚠️  Stopping early - will only process up to finding_id {max_id:,}")
 
-        # Get optimized properties
-        optimized_properties = self.get_optimized_properties()
+        print(f"📊 Processing ID range: {min_id:,} to {max_id:,}")
 
-        # Read in batches
-        loading_start = datetime.now()
-        print(f"[{loading_start.strftime('%Y-%m-%d %H:%M:%S')}] Starting batch loading phase...")
+        # Validate range
+        if min_id > max_id:
+            print(f"❌ Invalid ID range: min_id ({min_id:,}) > max_id ({max_id:,})")
+            return spark.createDataFrame([], schema=None)
 
-        batches = []
-        current_lower = min_id
-        batch_num = 1
+        # Load raw query
+        raw_query = self.get_join_query()
 
-        while current_lower <= max_id:
-            current_upper = min(current_lower + batch_size - 1, max_id)
+        # Calculate batches based on the (possibly limited) range
+        total_ids = max_id - min_id + 1
+        total_batches = (total_ids + batch_size - 1) // batch_size
+        print(f"📦 Total batches to process: {total_batches}")
+        print(f"📈 Expected total records: ~{total_ids:,} IDs")
 
-            batch_start = datetime.now()
-            print(
-                f"  [{batch_start.strftime('%H:%M:%S')}] Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
+        # Process batches
+        all_batches = []
 
-            # Load this batch using multi-connection approach
+        for batch_num in range(1, total_batches + 1):
+            batch_start_time = datetime.now()
+
+            start_id = min_id + (batch_num - 1) * batch_size
+            end_id = min(start_id + batch_size - 1, max_id)  # Ensure we don't exceed max_id
+
+            print(f"\n--- Batch {batch_num}/{total_batches} ---")
+            print(f"📥 Reading batch {batch_num}: findings.id {start_id:,} to {end_id:,}")
+
+            # Load batch
             batch_df = self.load_batch_with_connections(
-                spark, current_lower, current_upper, connections_per_batch,
-                batch_num, raw_query, optimized_properties
+                spark, start_id, end_id, connections_per_batch, batch_num, raw_query, self.postgres_properties
             )
 
             if batch_df is not None:
-                batch_end = datetime.now()
-                batch_duration = (batch_end - batch_start).total_seconds()
-                print(
-                    f"    [{batch_end.strftime('%H:%M:%S')}] Batch {batch_num} loaded and cached (took {batch_duration:.1f}s)")
-                if batch_df.count() > 0:  # This uses cached count
-                    batches.append(batch_df)
+                batch_count = batch_df.count()
+
+                print(f"✅ Batch {batch_num} loaded and cached: {batch_count:,} rows")
+                all_batches.append(batch_df)
+
+                # Check if we've reached the max_id limit
+                if end_id >= max_id:
+                    print(f"🎯 Reached maximum finding_id limit ({max_id:,}) - stopping")
+                    break
+
             else:
-                print(f"    Batch {batch_num} failed, skipping")
+                print(f"⚠️ Batch {batch_num} returned no data")
 
-            current_lower = current_upper + 1
-            batch_num += 1
+        # Final union
+        print(f"\n🔗 Combining {len(all_batches)} batches...")
+        combine_start_time = datetime.now()
 
-        loading_end = datetime.now()
-        loading_duration = (loading_end - loading_start).total_seconds()
-        print(f"[{loading_end.strftime('%Y-%m-%d %H:%M:%S')}] Batch loading phase completed in {loading_duration:.1f}s")
-        print(f"Loaded {len(batches)} batches successfully")
+        if all_batches:
+            final_df = self.safe_union_all_batches(all_batches)
+            combine_duration = (datetime.now() - combine_start_time).total_seconds()
 
-        # Final union of all batches using safe method
-        if batches:
-            union_start = datetime.now()
-            print(f"  [{union_start.strftime('%H:%M:%S')}] Safely combining {len(batches)} final batches...")
-            result_df = self.safe_union_all_batches(batches)
+            total_duration = (datetime.now() - start_time).total_seconds()
+            final_count = final_df.count()
 
-            if result_df is not None:
-                # Final optimization
-                result_df = result_df.repartition(16, "package_name").cache()
+            print(f"✅ Data loading completed at: {datetime.now().strftime('%H:%M:%S')}")
+            print(f"⏱️ Total time: {total_duration / 60:.1f} minutes, Union time: {combine_duration:.1f}s")
+            print(f"📊 Final dataset: {final_count:,} rows from {len(all_batches)} batches")
 
-                total_count = result_df.count()
+            if max_id_override:
+                print(f"🎯 Limited to findings.id ≤ {max_id:,} (stopped early)")
 
-                end_time = datetime.now()
-                total_duration = (end_time - start_time).total_seconds()
-                union_duration = (end_time - union_start).total_seconds()
-
-                print(
-                    f"  [{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
-                print(f"  Final union took: {union_duration:.1f}s")
-                print(f"  Total data loading time: {total_duration:.1f}s ({total_duration / 60:.1f} minutes)")
-
-                # Show sample
-                print("  Sample of joined data:")
-                result_df.persist()
-                result_df.show(5)
-
-                return result_df
-            else:
-                print("  ❌ Failed to combine batches")
-                return self.get_empty_dataframe(spark)
+            return final_df
         else:
-            print("  ⚠️  No data loaded")
-            return self.get_empty_dataframe(spark)
+            print("❌ No batches loaded successfully")
+            return spark.createDataFrame([], schema=None)
+
+    # def read_findings_data(self, spark: SparkSession,
+    #                        batch_size: int = 3200000,  # Total batch size across 4 connections
+    #                        connections_per_batch: int = 32,
+    #                        min_id_override: int = None,
+    #                        max_id_override: int = None) -> DataFrame:
+    #     """
+    #     Read data using PostgreSQL join query with multi-connection batching.
+    #     Uses safe union methods to handle thousands of batches without recursion issues.
+    #     """
+    #     from datetime import datetime
+    #
+    #     start_time = datetime.now()
+    #     print(f"=== [{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting data loading ===")
+    #     print(f"Batch size: {batch_size:,} IDs per batch")
+    #     print(f"Connections per batch: {connections_per_batch}")
+    #
+    #     # Get the raw join query
+    #     raw_query = self.get_join_query()
+    #     print("Base join query loaded from raw_join_query1.sql")
+    #
+    #     # Get findings ID bounds for batching
+    #     print("Getting findings ID bounds for batching...")
+    #     min_id, max_id = self.get_id_bounds(spark)
+    #
+    #     # Override min_id if specified for testing
+    #     if min_id_override is not None:
+    #         min_id = max(min_id, min_id_override)
+    #         print(f"Testing mode: starting min ID from {min_id:,} to {max_id:,}")
+    #
+    #     if max_id_override:
+    #         original_max_id = max_id
+    #         max_id = min(max_id, max_id_override)  # Use the smaller of the two
+    #         print(f"🔧 Overriding max_id to: {max_id:,} (original: {original_max_id:,})")
+    #
+    #         if max_id_override < original_max_id:
+    #             print(f"⚠️  Stopping early - will only process up to finding_id {max_id:,}")
+    #
+    #     total_range = max_id - min_id + 1
+    #     estimated_batches = (total_range + batch_size - 1) // batch_size
+    #
+    #     print(f"Findings ID range: {min_id:,} to {max_id:,} ({total_range:,} IDs)")
+    #     print(f"Estimated batches: {estimated_batches}")
+    #
+    #     # Get optimized properties
+    #     optimized_properties = self.get_optimized_properties()
+    #
+    #     # Read in batches
+    #     loading_start = datetime.now()
+    #     print(f"[{loading_start.strftime('%Y-%m-%d %H:%M:%S')}] Starting batch loading phase...")
+    #
+    #     batches = []
+    #     current_lower = min_id
+    #     batch_num = 1
+    #
+    #     while current_lower <= max_id:
+    #         current_upper = min(current_lower + batch_size - 1, max_id)
+    #
+    #         batch_start = datetime.now()
+    #         print(
+    #             f"  [{batch_start.strftime('%H:%M:%S')}] Reading batch {batch_num}: findings.id {current_lower:,} to {current_upper:,}")
+    #
+    #         # Load this batch using multi-connection approach
+    #         batch_df = self.load_batch_with_connections(
+    #             spark, current_lower, current_upper, connections_per_batch,
+    #             batch_num, raw_query, optimized_properties
+    #         )
+    #
+    #         if batch_df is not None:
+    #             batch_end = datetime.now()
+    #             batch_duration = (batch_end - batch_start).total_seconds()
+    #             print(
+    #                 f"    [{batch_end.strftime('%H:%M:%S')}] Batch {batch_num} loaded and cached (took {batch_duration:.1f}s)")
+    #             if batch_df.count() > 0:  # This uses cached count
+    #                 batches.append(batch_df)
+    #         else:
+    #             print(f"    Batch {batch_num} failed, skipping")
+    #
+    #         current_lower = current_upper + 1
+    #         batch_num += 1
+    #
+    #     loading_end = datetime.now()
+    #     loading_duration = (loading_end - loading_start).total_seconds()
+    #     print(f"[{loading_end.strftime('%Y-%m-%d %H:%M:%S')}] Batch loading phase completed in {loading_duration:.1f}s")
+    #     print(f"Loaded {len(batches)} batches successfully")
+    #
+    #     # Final union of all batches using safe method
+    #     if batches:
+    #         union_start = datetime.now()
+    #         print(f"  [{union_start.strftime('%H:%M:%S')}] Safely combining {len(batches)} final batches...")
+    #         result_df = self.safe_union_all_batches(batches)
+    #
+    #         if result_df is not None:
+    #             # Final optimization
+    #             result_df = result_df.repartition(16, "package_name").cache()
+    #
+    #             total_count = result_df.count()
+    #
+    #             end_time = datetime.now()
+    #             total_duration = (end_time - start_time).total_seconds()
+    #             union_duration = (end_time - union_start).total_seconds()
+    #
+    #             print(
+    #                 f"  [{end_time.strftime('%Y-%m-%d %H:%M:%S')}] ✓ Total joined data: {total_count:,} rows from PostgreSQL join query")
+    #             print(f"  Final union took: {union_duration:.1f}s")
+    #             print(f"  Total data loading time: {total_duration:.1f}s ({total_duration / 60:.1f} minutes)")
+    #
+    #             # Show sample
+    #             print("  Sample of joined data:")
+    #             result_df.persist()
+    #             result_df.show(5)
+    #
+    #             return result_df
+    #         else:
+    #             print("  ❌ Failed to combine batches")
+    #             return self.get_empty_dataframe(spark)
+    #     else:
+    #         print("  ⚠️  No data loaded")
+    #         return self.get_empty_dataframe(spark)
 
 
     def load_batch_with_connections(self, spark: SparkSession, start_id: int, end_id: int,

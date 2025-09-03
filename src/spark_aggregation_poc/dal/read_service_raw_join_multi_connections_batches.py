@@ -20,7 +20,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = 20000000) -> DataFrame:  # Add max_id_override parameter
+                           max_id_override: int = None) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
 

@@ -22,7 +22,8 @@ SELECT
     statuses.category as category,
     findings.fix_id as fix_id,
     findings_additional_Data.cve[1] as cve,
-    findings.fix_type as fix_type
+    findings.fix_type as fix_type,
+    findings.fix_id as fix_id
 FROM findings
 LEFT OUTER JOIN finding_sla_rule_connections ON
     findings.id = finding_sla_rule_connections.finding_id

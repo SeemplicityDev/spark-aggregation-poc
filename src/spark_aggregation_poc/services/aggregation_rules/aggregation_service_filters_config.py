@@ -32,7 +32,7 @@ class AggregationServiceFiltersConfig:
         # Load rules from database
         rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print("loaded rules from DB")
-        rules_df.show(truncate=False)
+        rules_df.show()
         spark_rules = self.rule_loader.parse_rules_to_spark_format(rules_df)
         print(f"transformed rules to spark format:\n {spark_rules}")
 

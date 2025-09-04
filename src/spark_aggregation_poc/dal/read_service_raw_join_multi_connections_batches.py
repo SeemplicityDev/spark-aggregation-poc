@@ -20,7 +20,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = 20000000) -> DataFrame:  # Add max_id_override parameter
+                           max_id_override: int = None) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
 
@@ -106,16 +106,6 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
         if all_batches:
             final_df = self.safe_union_all_batches(all_batches)
-
-            # CRITICAL: Materialize the union result to prevent thundering herd during aggregation
-            print(f"🔄 Materializing union result...")
-            materialize_start = datetime.now()
-            final_df = final_df.persist()
-            final_count = final_df.count()  # Force execution of the union
-            materialize_duration = (datetime.now() - materialize_start).total_seconds()
-
-            print(f"✅ Union result materialized: {final_count:,} rows in {materialize_duration:.1f}s")
-
             combine_duration = (datetime.now() - combine_start_time).total_seconds()
 
             total_duration = (datetime.now() - start_time).total_seconds()

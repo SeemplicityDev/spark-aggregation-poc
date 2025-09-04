@@ -290,7 +290,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
             batch_df.write \
                 .mode("append") \
-                .saveAsTable("general_data.default.findings")
+                .saveAsTable("general_data.default.findings1")
 
             # Option 2: Read from Databricks table (fast)
             print("Reading from Databricks table...")

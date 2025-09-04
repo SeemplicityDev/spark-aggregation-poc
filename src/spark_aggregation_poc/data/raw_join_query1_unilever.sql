@@ -1,4 +1,3 @@
-SELECT
-    *
+SELECT id, datasource_id, datasource_definition_id, title, "source", finding_id, original_finding_id, region, created_time, discovered_time, due_date, last_reported_time, original_status, time_to_remediate, category, sub_category, cloud_provider, cloud_account, cloud_account_friendly_name, dictionary_category, dictionary_sub_category, rule_id, resource_reported_not_exist, aggregation_group_id, main_resource_id, package_name, image_id, scan_id, editable, reopen_date, finding_type_str, fix_id, fix_vendor_id, fix_type, fix_subtype, rule_type, rule_family, last_collected_time
 FROM findings
 WHERE findings.package_name IS NOT NULL

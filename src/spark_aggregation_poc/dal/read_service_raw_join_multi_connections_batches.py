@@ -430,6 +430,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             path: str = "raw_join_query1_carlsberg.sql"
         if self._customer == "Unilever":
             path: str = "raw_join_query1_unilever.sql"
+        print(f"Loading {path}")
         current_dir = os.path.dirname(os.path.abspath(__file__))
         sql_file_path = os.path.join(current_dir, "..", "data", path)
         sql_file_path = os.path.normpath(sql_file_path)

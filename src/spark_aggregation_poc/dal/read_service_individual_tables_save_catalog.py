@@ -17,7 +17,7 @@ class ReadServiceIndividualTablesSaveCatalog:
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           max_id_override: int = 20000000) -> DataFrame:
+                           max_id_override: int = None) -> DataFrame:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
@@ -77,10 +77,14 @@ class ReadServiceIndividualTablesSaveCatalog:
         return result_df
 
     def save_to_catalog(self, df, table_name):
+        from datetime import datetime
+
         df.write \
             .mode("append") \
             .saveAsTable(f"general_data.default.{table_name}")
-        print(f"✓ {table_name}: loaded and saved to catalog")
+        save_start_time = datetime.now()
+        print(f"✓ {table_name}: loaded and saved to catalog at: {save_start_time.strftime('%H:%M:%S')}")
+
 
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
                                  batch_size: int, connections_per_batch: int,
@@ -110,11 +114,16 @@ class ReadServiceIndividualTablesSaveCatalog:
 
         batches = []
 
+        from datetime import datetime
+
         for batch_num in range(num_batches):
             start_id = min_id + (batch_num * batch_size)
             end_id = min(start_id + batch_size - 1, max_id)
 
+            print(f"\n--- Batch {batch_num}/{num_batches} ---")
             print(f"    Batch {batch_num + 1}/{num_batches}: {id_column} {start_id:,} to {end_id:,}")
+            batch_start_time = datetime.now()
+            print(f"🕐 [BATCH START] Batch {batch_num} started at: {batch_start_time.strftime('%H:%M:%S')}")
 
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch

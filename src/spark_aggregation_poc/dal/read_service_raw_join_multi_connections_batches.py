@@ -300,6 +300,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             row_count = df.count()
             print(f"Read time from table: {time() - read_start:.2f} seconds")
             print(f"Loaded {row_count:,} rows from table")
+            df.show(5)
 
             return batch_df
 

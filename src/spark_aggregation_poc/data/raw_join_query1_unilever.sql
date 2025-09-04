@@ -5,7 +5,6 @@ SELECT
     findings.aggregation_group_id,
     findings.finding_type_str as finding_type_str,
     findings.fix_subtype as fix_subtype,
-    statuses.category as category,
     findings.fix_id as fix_id,
     findings.fix_type as fix_type
 FROM findings

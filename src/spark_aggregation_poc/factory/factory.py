@@ -16,6 +16,8 @@ from spark_aggregation_poc.services.aggregation_rules.read_service_filters_confi
 from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader
 from spark_aggregation_poc.services.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_multi_rules_from_catalog import \
+    AggregationServiceMultiRulesFromCatalog
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
@@ -76,3 +78,8 @@ class Factory:
         rule_loader = RuleLoader(config)
         filters_config_processor = FiltersConfigProcessor()
         return AggregationServiceFiltersConfig(rule_loader=rule_loader, filters_config_processor=filters_config_processor)
+
+    @classmethod
+    def create_aggregation_service_multi_rules_from_catalog(cls, config: Config) -> AggregationServiceMultiRulesFromCatalog:
+        return AggregationServiceMultiRulesFromCatalog(config=config)
+

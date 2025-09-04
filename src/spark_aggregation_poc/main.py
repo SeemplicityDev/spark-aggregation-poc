@@ -18,6 +18,8 @@ from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filter
     AggregationServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_multi_rules_from_catalog import \
+    AggregationServiceMultiRulesFromCatalog
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
@@ -70,6 +72,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
         aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite = app_context.aggregation_service_multi_rules_no_write
         aggregation_service_filters_config: AggregationServiceFiltersConfig = app_context.aggregation_service_filters_config
+        aggregation_service_multi_rules_from_catalog: AggregationServiceMultiRulesFromCatalog = app_context.aggregation_service_multi_rules_from_catalog
 
         from time import time
 
@@ -77,25 +80,13 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
-        # Option 2: Read from Databricks table (fast)
-        from time import time
-        print("Reading from Databricks table...")
-        read_start = time()
-        df = spark.table("general_data.default.findings")
-        row_count = df.count()
-        print(f"Read time from table: {time() - read_start:.2f} seconds")
-        print(f"Loaded {row_count:,} rows from table")
-        df.show(5)
-
-        # df.show()
-
-        # df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df=df)
+        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_from_catalog.aggregate(spark=spark)
         # df_groups_to_findings: DataFrame = aggregation_service_filters_config.aggregate(spark=spark, findings_df=df)
-        # print("\n=== Groups to findings Aggregation ===")
-        # start = time()
-        # df_groups_to_findings.show()
-        # print(f"Transform time: {time() - start:.2f} seconds")
-        #
+        print("\n=== Groups to findings Aggregation ===")
+        start = time()
+        df_groups_to_findings.show()
+        print(f"Transform time: {time() - start:.2f} seconds")
+
         # print("\n=== Writing to groups_to_findings table ===")
         # start = time()
         # write_service.write_groups_to_findings(df_transformed)

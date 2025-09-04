@@ -17,6 +17,8 @@ from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filter
     AggregationServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
 from spark_aggregation_poc.services.aggregation_service import AggregationService
+from spark_aggregation_poc.services.aggregation_service_multi_rules_from_catalog import \
+    AggregationServiceMultiRulesFromCatalog
 from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
 from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
 
@@ -37,6 +39,7 @@ class AppContext:
     aggregation_service_raw_join: AggregationServiceRawJoin
     aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite
     aggregation_service_filters_config: AggregationServiceFiltersConfig
+    aggregation_service_multi_rules_from_catalog: AggregationServiceMultiRulesFromCatalog
 
 def build_app_context(config: Config = None) -> AppContext:
     if config is None:
@@ -56,6 +59,8 @@ def build_app_context(config: Config = None) -> AppContext:
     aggregation_service_raw_join: AggregationServiceRawJoin = Factory.create_aggregation_service_raw_join()
     aggregation_service_multi_rule_no_write: AggregationServiceMultiRulesNoWrite = Factory.create_aggregation_service_multi_rules_no_write(config)
     aggregation_service_filters_config: AggregationServiceFiltersConfig = Factory.create_aggregation_service_filters_config(config)
+    aggregation_service_multi_rules_from_catalog: AggregationServiceMultiRulesFromCatalog = Factory.create_aggregation_service_multi_rules_from_catalog(config)
     return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw_join_multi_connection_batches, read_service_individual_tables_connection_batches,
                       read_service_raw, read_service_filters_config, read_service_individual_tables_save_catalog,
-                      write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write, aggregation_service_filters_config)
+                      write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write, aggregation_service_filters_config,
+                      aggregation_service_multi_rules_from_catalog)

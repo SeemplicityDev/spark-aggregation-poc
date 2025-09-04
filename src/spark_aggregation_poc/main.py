@@ -6,6 +6,7 @@ from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
     ReadServiceIndividualTablesMultiConnectionBatches
+from spark_aggregation_poc.dal.read_service_individual_tables_save_catalog import ReadServiceIndividualTablesSaveCatalog
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
@@ -63,6 +64,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         create_read_service_individual_tables_multi_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = app_context.read_service_individual_tables_connection_batches
         read_service_raw: ReadServiceRaw = app_context.read_service_raw
         read_service_filters_config: ReadServiceFiltersConfig = app_context.read_service_filters_config
+        read_service_individual_tables_save_catalog: ReadServiceIndividualTablesSaveCatalog = app_context.read_service_individual_tables_save_catalog
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
         aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
@@ -72,7 +74,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = read_service_raw_join_multi_connection_batches.read_findings_data(spark=spark)
+        df = read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
         # Option 2: Read from Databricks table (fast)

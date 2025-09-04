@@ -7,26 +7,31 @@ from pyspark.sql.functions import lit, col, broadcast
 from spark_aggregation_poc.config.config import Config
 
 
-class ReadServiceIndividualTablesMultiConnectionBatches:
+class ReadServiceIndividualTablesSaveCatalog:
    
 
     def __init__(self, config: Config):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-
     def read_findings_data(self, spark: SparkSession,
-                                        large_table_batch_size: int = 3200000,
-                                        connections_per_batch: int = 32) -> DataFrame:
+                           large_table_batch_size: int = 3200000,
+                           connections_per_batch: int = 32,
+                           max_id_override: int = 20000000) -> DataFrame:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
         Large tables (L): findings, findings_scores, user_status, findings_info, findings_additional_data
         Medium tables (M): finding_sla_rule_connections, plain_resources
         Small tables (S): statuses, aggregation_groups, aggregation_rules_findings_excluder
+
+        Args:
+            max_id_override: Optional max ID limit to stop processing before complete large tables
         """
 
         print("=== Loading Tables Separately by Size and Joining in Spark ===")
+        if max_id_override:
+            print(f"Using max_id_override: {max_id_override:,}")
 
         # Define table categories
         large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data"]
@@ -39,16 +44,21 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         print("\n--- Loading Large Tables (Batched Multi-Connection) ---")
         for table_name in large_tables:
             print(f"\nLoading large table: {table_name}")
-            df = self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch)
-            self.save_to_catalog(df, table_name)
+            df = self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch,
+                                               max_id_override)
+            df = df.persist()
+            count = df.count()
+            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
             loaded_tables[table_name] = df
 
         # 2. Load Medium Tables (M) - Use simple multi-connection
         print("\n--- Loading Medium Tables (Multi-Connection) ---")
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
-            df = self.load_medium_table(spark, table_name)
-            self.save_to_catalog(df, table_name)
+            df = self.load_medium_table(spark, table_name, max_id_override)
+            df = df.persist()
+            count = df.count()
+            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
             loaded_tables[table_name] = df
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
@@ -77,14 +87,25 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         print(f"✓ {table_name}: loaded and saved to catalog")
 
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
-                                 batch_size: int, connections_per_batch: int) -> DataFrame:
+                                 batch_size: int, connections_per_batch: int,
+                                 max_id_override: int = None) -> DataFrame:
         """Load large table using batched multi-connection approach"""
 
         # Get ID bounds
         id_column = self.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
 
-        print(f"  {table_name} ID range: {min_id:,} to {max_id:,}")
+        # Apply max_id_override if provided
+        if max_id_override is not None:
+            original_max_id = max_id
+            max_id = min(max_id, max_id_override)
+            if max_id < original_max_id:
+                print(
+                    f"  {table_name} ID range limited by override: {min_id:,} to {max_id:,} (original max: {original_max_id:,})")
+            else:
+                print(f"  {table_name} ID range: {min_id:,} to {max_id:,} (override {max_id_override:,} not applied)")
+        else:
+            print(f"  {table_name} ID range: {min_id:,} to {max_id:,}")
 
         # Calculate batches
         total_range = max_id - min_id + 1
@@ -121,11 +142,19 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
             return self.get_empty_table_dataframe(spark, table_name)
 
 
-    def load_medium_table(self, spark: SparkSession, table_name: str) -> DataFrame:
+    def load_medium_table(self, spark: SparkSession, table_name: str,
+                          max_id_override: int = None) -> DataFrame:
         """Load medium table using simple multi-connection partitioning"""
 
         id_column = self.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
+
+        # Apply max_id_override if provided
+        if max_id_override is not None:
+            original_max_id = max_id
+            max_id = min(max_id, max_id_override)
+            if max_id < original_max_id:
+                print(f"  {table_name} ID range limited by override: {min_id:,} to {max_id:,} (original max: {original_max_id:,})")
 
         return spark.read.jdbc(
             url=self.postgres_url,

@@ -2,6 +2,7 @@ from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
     ReadServiceIndividualTablesMultiConnectionBatches
+from spark_aggregation_poc.dal.read_service_individual_tables_save_catalog import ReadServiceIndividualTablesSaveCatalog
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
@@ -49,6 +50,10 @@ class Factory:
     def create_read_service_filters_config(cls, config: Config) -> ReadServiceFiltersConfig:
         rule_loader = RuleLoader(config)
         return ReadServiceFiltersConfig(config=config, rule_loader=rule_loader)
+
+    @classmethod
+    def create_read_service_individual_tables_save_catalog(cls, config: Config) -> ReadServiceIndividualTablesSaveCatalog:
+        return ReadServiceIndividualTablesSaveCatalog(config=config)
 
     @classmethod
     def create_write_service(cls, config: Config) -> WriteService:

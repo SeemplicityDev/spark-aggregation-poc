@@ -2,6 +2,7 @@ import json
 from typing import Dict, Any, Optional
 
 from pyspark.sql import DataFrame
+from pyspark.sql.functions import expr
 
 
 class FiltersConfigProcessor:
@@ -162,8 +163,8 @@ class FiltersConfigProcessor:
         """
         filter_condition = self.generate_filter_condition(filters_config)
 
-        # if filter_condition:
-        #     print(f"Applying filters_config condition: {filter_condition}")
-        #     return df.filter(expr(filter_condition))
+        if filter_condition:
+            print(f"Applying filters_config condition: {filter_condition}")
+            return df.filter(expr(filter_condition))
 
         return df

@@ -4,6 +4,7 @@ from spark_aggregation_poc.config.config import Config, ConfigLoader
 from spark_aggregation_poc.dal.read_service import ReadService
 from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
     ReadServiceIndividualTablesMultiConnectionBatches
+from spark_aggregation_poc.dal.read_service_individual_tables_save_catalog import ReadServiceIndividualTablesSaveCatalog
 from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
 from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
 from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
@@ -30,6 +31,7 @@ class AppContext:
     read_service_individual_tables_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches
     read_service_raw: ReadServiceRaw
     read_service_filters_config: ReadServiceFiltersConfig
+    read_service_individual_tables_save_catalog: ReadServiceIndividualTablesSaveCatalog
     write_service: WriteService
     aggregation_service: AggregationService
     aggregation_service_raw_join: AggregationServiceRawJoin
@@ -47,6 +49,7 @@ def build_app_context(config: Config = None) -> AppContext:
     read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = Factory.create_read_service_raw_join_multi_connection_batches(config)
     read_service_individual_tables_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = Factory.create_read_service_individual_tables_multi_connection_batches(config)
     read_service_raw: ReadServiceRaw = Factory.create_read_service_raw(config)
+    read_service_individual_tables_save_catalog: ReadServiceIndividualTablesSaveCatalog = Factory.create_read_service_individual_tables_save_catalog(config)
     read_service_filters_config: ReadServiceFiltersConfig = Factory.create_read_service_filters_config(config)
     write_service: WriteService = Factory.create_write_service(config)
     aggregation_service: AggregationService = Factory.create_aggregation_service()
@@ -54,4 +57,5 @@ def build_app_context(config: Config = None) -> AppContext:
     aggregation_service_multi_rule_no_write: AggregationServiceMultiRulesNoWrite = Factory.create_aggregation_service_multi_rules_no_write(config)
     aggregation_service_filters_config: AggregationServiceFiltersConfig = Factory.create_aggregation_service_filters_config(config)
     return AppContext(config, read_service, read_service_pre_partition, read_service_raw_join, read_service_raw_join_multi_connection_batches, read_service_individual_tables_connection_batches,
-                      read_service_raw, read_service_filters_config, write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write, aggregation_service_filters_config)
+                      read_service_raw, read_service_filters_config, read_service_individual_tables_save_catalog,
+                      write_service, aggregation_service, aggregation_service_raw_join, aggregation_service_multi_rule_no_write, aggregation_service_filters_config)

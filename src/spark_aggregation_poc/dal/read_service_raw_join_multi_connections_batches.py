@@ -20,7 +20,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = None) -> DataFrame:  # Add max_id_override parameter
+                           max_id_override: int = 20000000) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
 
@@ -86,10 +86,10 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             if batch_df is not None:
-                batch_count = batch_df.count()
+                # batch_count = batch_df.count()
 
-                print(f"✅ Batch {batch_num} loaded and cached: {batch_count:,} rows")
-                all_batches.append(batch_df)
+                # print(f"✅ Batch {batch_num} loaded and cached: {batch_count:,} rows")
+                # all_batches.append(batch_df)
 
                 # Check if we've reached the max_id limit
                 if end_id >= max_id:
@@ -104,24 +104,34 @@ class ReadServiceRawJoinMultiConnectionBatches:
         combine_start_time = datetime.now()
         print(f"🕐 [UNION START] Union started at: {combine_start_time.strftime('%H:%M:%S')}")
 
-        if all_batches:
-            final_df = self.safe_union_all_batches(all_batches)
-            combine_duration = (datetime.now() - combine_start_time).total_seconds()
-
-            total_duration = (datetime.now() - start_time).total_seconds()
-            final_count = final_df.count()
-
-            print(f"✅ Data loading completed at: {datetime.now().strftime('%H:%M:%S')}")
-            print(f"⏱️ Total time: {total_duration / 60:.1f} minutes, Union time: {combine_duration:.1f}s")
-            print(f"📊 Final dataset: {final_count:,} rows from {len(all_batches)} batches")
-
-            if max_id_override:
-                print(f"🎯 Limited to findings.id ≤ {max_id:,} (stopped early)")
-
-            return final_df
-        else:
-            print("❌ No batches loaded successfully")
-            return spark.createDataFrame([], schema=None)
+        # if all_batches:
+        #     final_df = self.safe_union_all_batches(all_batches)
+        #
+        #     # CRITICAL: Materialize the union result to prevent thundering herd during aggregation
+        #     print(f"🔄 Materializing union result...")
+        #     materialize_start = datetime.now()
+        #     final_df = final_df.persist()
+        #     final_count = final_df.count()  # Force execution of the union
+        #     materialize_duration = (datetime.now() - materialize_start).total_seconds()
+        #
+        #     print(f"✅ Union result materialized: {final_count:,} rows in {materialize_duration:.1f}s")
+        #
+        #     combine_duration = (datetime.now() - combine_start_time).total_seconds()
+        #
+        #     total_duration = (datetime.now() - start_time).total_seconds()
+        #     final_count = final_df.count()
+        #
+        #     print(f"✅ Data loading completed at: {datetime.now().strftime('%H:%M:%S')}")
+        #     print(f"⏱️ Total time: {total_duration / 60:.1f} minutes, Union time: {combine_duration:.1f}s")
+        #     print(f"📊 Final dataset: {final_count:,} rows from {len(all_batches)} batches")
+        #
+        #     if max_id_override:
+        #         print(f"🎯 Limited to findings.id ≤ {max_id:,} (stopped early)")
+        #
+        #     return final_df
+        # else:
+        #     print("❌ No batches loaded successfully")
+        #     return spark.createDataFrame([], schema=None)
 
     # def read_findings_data(self, spark: SparkSession,
     #                        batch_size: int = 3200000,  # Total batch size across 4 connections
@@ -272,10 +282,14 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             # CRITICAL FIX: Force immediate materialization to prevent thundering herd
-            batch_df = batch_df.persist()
-            actual_count = batch_df.count()  # This forces execution now, not later
-            print(f"    Batch {batch_num} materialized: {actual_count:,} rows")
+            # batch_df = batch_df.persist()
+            # actual_count = batch_df.count()  # This forces execution now, not later
+            # print(f"    Batch {batch_num} materialized: {actual_count:,} rows")
 
+
+            batch_df.write \
+                .mode("append") \
+                .saveAsTable("general_data.default.findings")
             return batch_df
 
         except Exception as e:

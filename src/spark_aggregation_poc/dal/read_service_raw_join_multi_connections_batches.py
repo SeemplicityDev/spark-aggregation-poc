@@ -293,6 +293,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                 .saveAsTable("general_data.default.findings1")
 
             # Option 2: Read from Databricks table (fast)
+            from time import time
             print("Reading from Databricks table...")
             read_start = time()
             df = spark.table("general_data.default.findings1")

@@ -1,4 +1,5 @@
 import os
+from datetime import time
 from typing import List, Tuple
 
 from pyspark.sql import DataFrame, SparkSession
@@ -290,6 +291,15 @@ class ReadServiceRawJoinMultiConnectionBatches:
             batch_df.write \
                 .mode("append") \
                 .saveAsTable("general_data.default.findings")
+
+            # Option 2: Read from Databricks table (fast)
+            print("Reading from Databricks table...")
+            read_start = time()
+            df = spark.table("general_data.default.findings1")
+            row_count = df.count()
+            print(f"Read time from table: {time() - read_start:.2f} seconds")
+            print(f"Loaded {row_count:,} rows from table")
+
             return batch_df
 
         except Exception as e:

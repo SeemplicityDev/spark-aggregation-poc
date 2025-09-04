@@ -21,7 +21,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
                            batch_size: int = 3200000,
                            connections_per_batch: int = 32,
                            min_id_override: int = None,
-                           max_id_override: int = 20000000) -> DataFrame:  # Add max_id_override parameter
+                           max_id_override: int = None) -> DataFrame:  # Add max_id_override parameter
         """
         Read data using PostgreSQL join query with multi-connection batching.
 
@@ -290,13 +290,13 @@ class ReadServiceRawJoinMultiConnectionBatches:
 
             batch_df.write \
                 .mode("append") \
-                .saveAsTable("general_data.default.findings1")
+                .saveAsTable("general_data.default.findings")
 
             # Option 2: Read from Databricks table (fast)
             from time import time
             print("Reading from Databricks table...")
             read_start = time()
-            df = spark.table("general_data.default.findings1")
+            df = spark.table("general_data.default.findings")
             row_count = df.count()
             print(f"Read time from table: {time() - read_start:.2f} seconds")
             print(f"Loaded {row_count:,} rows from table")

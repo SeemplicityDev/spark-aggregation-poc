@@ -74,6 +74,17 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         start = time()
         df = read_service_raw_join_multi_connection_batches.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
+
+        # Option 2: Read from Databricks table (fast)
+        from time import time
+        print("Reading from Databricks table...")
+        read_start = time()
+        df = spark.table("general_data.default.findings")
+        row_count = df.count()
+        print(f"Read time from table: {time() - read_start:.2f} seconds")
+        print(f"Loaded {row_count:,} rows from table")
+        df.show(5)
+
         # df.show()
 
         # df_groups_to_findings: DataFrame = aggregation_service_multi_rules_no_write.aggregate(df=df)

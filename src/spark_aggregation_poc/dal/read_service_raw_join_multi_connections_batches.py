@@ -87,15 +87,7 @@ class ReadServiceRawJoinMultiConnectionBatches:
             )
 
             if batch_df is not None:
-                # Option 2: Read from Databricks table (fast)
-                from time import time
-                print("Reading from Databricks table...")
-                read_start = time()
-                df = spark.table("general_data.default.findings")
-                row_count = df.count()
-                print(f"Read time from table: {time() - read_start:.2f} seconds")
-                print(f"Loaded {row_count:,} rows from table")
-                df.show(5)
+
                 # batch_count = batch_df.count()
 
                 # print(f"✅ Batch {batch_num} loaded and cached: {batch_count:,} rows")

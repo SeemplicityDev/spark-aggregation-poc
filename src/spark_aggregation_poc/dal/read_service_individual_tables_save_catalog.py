@@ -34,8 +34,8 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"Using max_id_override: {max_id_override:,}")
 
         # Define table categories
-        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources", "finding_sla_rule_connections"]
-        medium_tables = []
+        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
+        medium_tables = ["finding_sla_rule_connections"]
         small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
         small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
 

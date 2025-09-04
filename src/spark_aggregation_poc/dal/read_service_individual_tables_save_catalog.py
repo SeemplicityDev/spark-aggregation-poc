@@ -17,7 +17,7 @@ class ReadServiceIndividualTablesSaveCatalog:
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           max_id_override: int = 20000000):
+                           max_id_override: int = None):
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
@@ -36,7 +36,6 @@ class ReadServiceIndividualTablesSaveCatalog:
         # Define table categories
         large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
         medium_tables = ["finding_sla_rule_connections"]
-        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
         small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
 
         loaded_tables = {}

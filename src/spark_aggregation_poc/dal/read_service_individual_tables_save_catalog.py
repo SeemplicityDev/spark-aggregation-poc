@@ -46,9 +46,7 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"\nLoading large table: {table_name}")
             df = self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch,
                                                max_id_override)
-            df = df.persist()
-            count = df.count()
-            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
+            self.save_to_catalog(df, table_name)
             loaded_tables[table_name] = df
 
         # 2. Load Medium Tables (M) - Use simple multi-connection
@@ -56,9 +54,7 @@ class ReadServiceIndividualTablesSaveCatalog:
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
             df = self.load_medium_table(spark, table_name, max_id_override)
-            df = df.persist()
-            count = df.count()
-            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
+            self.save_to_catalog(df, table_name)
             loaded_tables[table_name] = df
 
         # 3. Load Small Tables (S) - Use single connection + broadcast

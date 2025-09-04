@@ -17,7 +17,7 @@ class ReadServiceIndividualTablesSaveCatalog:
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           max_id_override: int = None) -> DataFrame:
+                           max_id_override: int = None):
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
@@ -34,9 +34,12 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"Using max_id_override: {max_id_override:,}")
 
         # Define table categories
-        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
-        medium_tables = ["finding_sla_rule_connections"]
-        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
+        large_tables = ["findings_info"]
+        medium_tables = []
+        small_tables = []
+        # large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
+        # medium_tables = ["finding_sla_rule_connections"]
+        # small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
 
         loaded_tables = {}
 
@@ -44,10 +47,8 @@ class ReadServiceIndividualTablesSaveCatalog:
         print("\n--- Loading Large Tables (Batched Multi-Connection) ---")
         for table_name in large_tables:
             print(f"\nLoading large table: {table_name}")
-            df = self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch,
+            self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch,
                                                max_id_override)
-            self.save_to_catalog(df, table_name)
-            loaded_tables[table_name] = df
 
         # 2. Load Medium Tables (M) - Use simple multi-connection
         print("\n--- Loading Medium Tables (Multi-Connection) ---")
@@ -55,7 +56,6 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"\nLoading medium table: {table_name}")
             df = self.load_medium_table(spark, table_name, max_id_override)
             self.save_to_catalog(df, table_name)
-            loaded_tables[table_name] = df
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
         print("\n--- Loading Small Tables (Single Connection + Broadcast) ---")
@@ -63,18 +63,7 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
             self.save_to_catalog(df, table_name)
-            loaded_tables[table_name] = df
 
-        # 4. Perform Spark joins in optimal order
-        print("\n--- Performing Spark Joins ---")
-        result_df = self.join_all_tables(loaded_tables)
-
-        # Final persistence and count
-        result_df = result_df.persist()
-        final_count = result_df.count()
-        print(f"✓ Final joined result: {final_count:,} rows")
-
-        return result_df
 
     def save_to_catalog(self, df, table_name):
         from datetime import datetime
@@ -88,7 +77,7 @@ class ReadServiceIndividualTablesSaveCatalog:
 
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
                                  batch_size: int, connections_per_batch: int,
-                                 max_id_override: int = None) -> DataFrame:
+                                 max_id_override: int = None):
         """Load large table using batched multi-connection approach"""
 
         # Get ID bounds
@@ -128,23 +117,24 @@ class ReadServiceIndividualTablesSaveCatalog:
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch
             )
+            self.save_to_catalog(batch_df, table_name)
 
-            # Force materialization to prevent thundering herd
-            batch_df = batch_df.persist()
-            batch_count = batch_df.count()
-            print(f"      Loaded: {batch_count:,} rows")
+            # # # Force materialization to prevent thundering herd
+            # # batch_df = batch_df.persist()
+            # # batch_count = batch_df.count()
+            # print(f"      Loaded: {batch_count:,} rows")
+            #
+            # if batch_count > 0:
+            # batches.append(batch_df)
 
-            if batch_count > 0:
-                batches.append(batch_df)
-
-        # Union all batches using tree-reduction
-        if len(batches) > 1:
-            print(f"  Combining {len(batches)} {table_name} batches...")
-            return self.safe_union_all_batches(batches)
-        elif len(batches) == 1:
-            return batches[0]
-        else:
-            return self.get_empty_table_dataframe(spark, table_name)
+        # # Union all batches using tree-reduction
+        # if len(batches) > 1:
+        #     print(f"  Combining {len(batches)} {table_name} batches...")
+        #     return self.safe_union_all_batches(batches)
+        # elif len(batches) == 1:
+        #     return batches[0]
+        # else:
+        #     return self.get_empty_table_dataframe(spark, table_name)
 
 
     def load_medium_table(self, spark: SparkSession, table_name: str,

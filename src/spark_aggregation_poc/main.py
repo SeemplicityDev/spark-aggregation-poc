@@ -74,7 +74,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         from time import time
 
         start = time()
-        df = read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
+        read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
         # Option 2: Read from Databricks table (fast)

@@ -86,11 +86,11 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         df_group_finding_relation.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
-        # print("\n=== Writing to groups_to_findings table ===")
-        # start = time()
-        # write_service.write_group_finding_relation(df_group_finding_relation)
-        # # write_service.write_groups_to_findings(df_groups_to_findings)
-        # print(f"Write time: {time() - start:.2f} seconds")
+        print("\n=== Writing to groups_to_findings table ===")
+        start = time()
+        write_service.write_group_finding_relation(df_group_finding_relation)
+        # write_service.write_groups_to_findings(df_groups_to_findings)
+        print(f"Write time: {time() - start:.2f} seconds")
 
 
 

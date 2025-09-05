@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from pyspark.sql import SparkSession, DataFrame
@@ -36,7 +37,8 @@ class AggregationServiceFiltersConfig:
         all_results = []
 
         for rule_idx, rule in enumerate(spark_rules):
-            print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Order={rule.order}, Type={rule.rule_type}")
+            start_time = datetime.now()
+            print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Order={rule.order}, Type={rule.rule_type} {start_time.strftime('%H:%M:%S')}")
 
             # Apply filters_config
             filtered_df = self.filters_config_processor.apply_filters_config_to_dataframe(

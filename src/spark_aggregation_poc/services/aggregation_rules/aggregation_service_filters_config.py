@@ -186,8 +186,20 @@ class AggregationServiceFiltersConfig:
                    findings.package_name as package_name,
                    findings.main_resource_id,
                    findings.aggregation_group_id,
+                   finding_sla_rule_connections.finding_id as sla_connection_id,
+                   plain_resources.id as resource_id,
                    plain_resources.cloud_account as root_cloud_account,
                    plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
+                   findings_scores.finding_id as score_finding_id,
+                   user_status.id as user_status_id,
+                   user_status.actual_status_key,
+                   findings_additional_data.finding_id as additional_data_id,
+                   statuses.key as status_key,
+                   aggregation_groups.id as existing_group_id,
+                   aggregation_groups.main_finding_id as existing_main_finding_id,
+                   aggregation_groups.group_identifier as existing_group_identifier,
+                   aggregation_groups.is_locked,   
+                   findings_info.id as findings_info_id,
                    findings.finding_type_str as finding_type_str,
                    findings.fix_subtype as fix_subtype,
                    statuses.category as category,
@@ -195,6 +207,8 @@ class AggregationServiceFiltersConfig:
                    findings_additional_data.cve[1] as cve,
                    findings.fix_type as fix_type
                FROM general_data.default.findings
+               LEFT OUTER JOIN general_data.default.finding_sla_rule_connections ON
+                    findings.id = finding_sla_rule_connections.finding_id
                JOIN general_data.default.plain_resources ON
                    findings.main_resource_id = plain_resources.id
                JOIN general_data.default.findings_scores ON
@@ -207,6 +221,8 @@ class AggregationServiceFiltersConfig:
                    statuses.key = user_status.actual_status_key
                LEFT OUTER JOIN general_data.default.aggregation_groups ON
                    findings.aggregation_group_id = aggregation_groups.id
+               LEFT OUTER JOIN general_data.default.findings_info ON
+                   findings_info.id = findings.id
                WHERE findings.package_name IS NOT NULL
                AND (findings.id <> aggregation_groups.main_finding_id
                OR findings.aggregation_group_id is null)

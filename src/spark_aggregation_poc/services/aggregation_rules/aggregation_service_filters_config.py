@@ -190,6 +190,7 @@ class AggregationServiceFiltersConfig:
                    plain_resources.id as resource_id,
                    plain_resources.cloud_account as root_cloud_account,
                    plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
+                   plain_resources.r1_resource_type as resource_type,
                    findings_scores.finding_id as score_finding_id,
                    user_status.id as user_status_id,
                    user_status.actual_status_key,

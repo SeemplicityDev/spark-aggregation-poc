@@ -200,7 +200,7 @@ class AggregationServiceFiltersConfig:
                    aggregation_groups.group_identifier as existing_group_identifier,
                    aggregation_groups.is_locked,   
                    findings_info.id as findings_info_id,
-                   findings.finding_type_str as finding_type_str,
+                   findings.finding_type_str as finding_type,
                    findings.fix_subtype as fix_subtype,
                    statuses.category as category,
                    findings.fix_id as fix_id,

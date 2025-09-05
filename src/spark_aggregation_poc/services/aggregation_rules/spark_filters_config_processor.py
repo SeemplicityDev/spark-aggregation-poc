@@ -116,21 +116,21 @@ class FiltersConfigProcessor:
                     return f"({' OR '.join(parsed_operands)})"
 
         # Handle field-based filters
-        elif "field" in filter_obj and "condition" in filter_obj:
+        elif "field" in filter_obj:
             field = filter_obj["field"]
-            condition = filter_obj["condition"]
+            condition = filter_obj.get("condition", "")
             value = filter_obj.get("value")
 
-            # Skip filters with empty conditions
-            if not condition:
-                return None
-
-            # Handle nested value objects
+            # Handle nested value objects (like actual_status case)
             if isinstance(value, dict) and "field" in value:
-                # This is a nested filter like the actual_status example
+                # This is a nested filter - process the nested value object
                 nested_condition = self._parse_filter_json(value)
                 if nested_condition:
                     return nested_condition
+                return None
+
+            # Skip filters with empty conditions AND no nested value
+            if not condition:
                 return None
 
             # Handle different condition types

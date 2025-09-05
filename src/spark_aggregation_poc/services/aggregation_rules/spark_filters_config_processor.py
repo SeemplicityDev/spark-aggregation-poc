@@ -23,6 +23,11 @@ class FiltersConfigProcessor:
         if not filters_config:
             return None
 
+        # Check if the filters_config itself is a filter JSON structure
+        if "operator" in filters_config and "operands" in filters_config:
+            # The entire filters_config is a filter JSON structure
+            return self._parse_filter_json(filters_config)
+
         conditions = []
 
         for field, values in filters_config.items():
@@ -67,20 +72,15 @@ class FiltersConfigProcessor:
                 value_list = "', '".join(str(v) for v in values)
                 conditions.append(f"{field} IN ('{value_list}')")
             elif values is not None and values != "":
-                conditions.append(f"{field} = '{values}')")
+                # Skip fields that are part of filter JSON structure
+                if field not in ["operator", "operands"]:
+                    conditions.append(f"{field} = '{values}'")
 
         return " AND ".join(conditions) if conditions else None
-
 
     def _parse_filter_json(self, filter_obj: Dict[str, Any]) -> Optional[str]:
         """
         Parse complex filtersjson structure into SQL conditions
-
-        Args:
-            filter_obj: The filter JSON object
-
-        Returns:
-            SQL condition string
         """
         if not isinstance(filter_obj, dict):
             return None
@@ -95,6 +95,16 @@ class FiltersConfigProcessor:
 
             parsed_operands = []
             for operand in operands:
+                # Handle string operands that might be JSON
+                if isinstance(operand, str):
+                    try:
+                        # Try to parse as JSON first
+                        operand = json.loads(operand)
+                    except json.JSONDecodeError:
+                        # If it's not JSON, skip it or handle as literal
+                        print(f"Warning: Could not parse operand as JSON: {operand}")
+                        continue
+
                 parsed_operand = self._parse_filter_json(operand)
                 if parsed_operand:
                     parsed_operands.append(parsed_operand)
@@ -145,10 +155,37 @@ class FiltersConfigProcessor:
                 return f"{field} LIKE '%{value}%'"
             elif condition == "not_contains":
                 return f"{field} NOT LIKE '%{value}%'"
-            # Add more condition types as needed
+            # Add support for custom conditions
+            elif condition == "overlap":
+                if isinstance(value, list) and value:
+                    # For array overlap, we need to check if the field contains any of the values
+                    conditions = []
+                    for v in value:
+                        conditions.append(f"array_contains({field}, '{v}')")
+                    return f"({' OR '.join(conditions)})"
+            elif condition == "notoverlapping":
+                if isinstance(value, list) and value:
+                    # For not overlapping, none of the values should be in the field
+                    conditions = []
+                    for v in value:
+                        conditions.append(f"NOT array_contains({field}, '{v}')")
+                    return f"({' AND '.join(conditions)})"
+            elif condition == "overlapilikelist":
+                if isinstance(value, list) and value:
+                    # Case-insensitive overlap
+                    conditions = []
+                    for v in value:
+                        conditions.append(f"exists(transform({field}, x -> lower(x)), x -> x = lower('{v}'))")
+                    return f"({' OR '.join(conditions)})"
+            elif condition == "notoverlapilikelist":
+                if isinstance(value, list) and value:
+                    # Case-insensitive not overlap
+                    conditions = []
+                    for v in value:
+                        conditions.append(f"NOT exists(transform({field}, x -> lower(x)), x -> x = lower('{v}'))")
+                    return f"({' AND '.join(conditions)})"
 
         return None
-
 
     def apply_filters_config_to_dataframe(self, df: DataFrame, filters_config: Dict[str, Any]) -> DataFrame:
         """

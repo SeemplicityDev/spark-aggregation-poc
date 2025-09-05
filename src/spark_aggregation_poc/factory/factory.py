@@ -77,7 +77,7 @@ class Factory:
     def create_aggregation_service_filters_config(cls, config: Config) -> AggregationServiceFiltersConfig:
         rule_loader = RuleLoader(config)
         filters_config_processor = FiltersConfigProcessor()
-        return AggregationServiceFiltersConfig(rule_loader=rule_loader, filters_config_processor=filters_config_processor)
+        return AggregationServiceFiltersConfig(config=config, rule_loader=rule_loader, filters_config_processor=filters_config_processor)
 
     @classmethod
     def create_aggregation_service_multi_rules_from_catalog(cls, config: Config) -> AggregationServiceMultiRulesFromCatalog:

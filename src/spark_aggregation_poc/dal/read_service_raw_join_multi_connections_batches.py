@@ -101,10 +101,13 @@ class ReadServiceRawJoinMultiConnectionBatches:
             else:
                 print(f"⚠️ Batch {batch_num} returned no data")
 
-        # Final union
-        print(f"\n🔗 Combining {len(all_batches)} batches...")
-        combine_start_time = datetime.now()
-        print(f"🕐 [UNION START] Union started at: {combine_start_time.strftime('%H:%M:%S')}")
+        return batch_df
+
+        # # Final union
+        # print(f"\n🔗 Combining {len(all_batches)} batches...")
+        # combine_start_time = datetime.now()
+        # print(f"🕐 [UNION START] Union started at: {combine_start_time.strftime('%H:%M:%S')}")
+
 
         # if all_batches:
         #     final_df = self.safe_union_all_batches(all_batches)
@@ -289,9 +292,9 @@ class ReadServiceRawJoinMultiConnectionBatches:
             # print(f"    Batch {batch_num} materialized: {actual_count:,} rows")
 
 
-            batch_df.write \
-                .mode("append") \
-                .saveAsTable("general_data.default.findings")
+            # batch_df.write \
+            #     .mode("append") \
+            #     .saveAsTable("general_data.default.findings")
 
             # # Option 2: Read from Databricks table (fast)
             # from time import time

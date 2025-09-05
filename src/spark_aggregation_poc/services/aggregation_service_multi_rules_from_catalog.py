@@ -3,8 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Dict
 
-from pyspark.sql import DataFrame
-from pyspark.sql.connect.session import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
     col, lit, concat_ws, coalesce, expr
 )

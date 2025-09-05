@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, collect_list, count, lit, concat_ws, coalesce
 
+from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
 from spark_aggregation_poc.services.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
 from spark_aggregation_poc.services.column_aggregation_util import ColumnAggregationUtil
@@ -15,12 +16,14 @@ class AggregationServiceFiltersConfig:
     Your main aggregation service using engine rules
     """
 
-    def __init__(self,  rule_loader: RuleLoader, filters_config_processor: FiltersConfigProcessor):
+    def __init__(self, config: Config,  rule_loader: RuleLoader, filters_config_processor: FiltersConfigProcessor):
+        self.config = config
         self.rule_loader = rule_loader
         self.filters_config_processor = filters_config_processor
 
-    def aggregate(self, spark:SparkSession, customer_id: Optional[int] = None) -> DataFrame:
-        findings_df = self.create_base_df(spark)
+    def aggregate(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> DataFrame:
+        if findings_df is None:
+            findings_df = self.create_base_df(spark)
         # Load rules from database
         rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print("loaded rules from DB")
@@ -175,11 +178,11 @@ class AggregationServiceFiltersConfig:
         return valid_columns
 
 
-    def create_base_df(self, spark):
+    def create_base_df(self, spark: SparkSession) -> DataFrame:
         # After tables are saved to catalog, create a view from the raw join
         print("Creating base findings view from catalog tables...")
         # Create a temporary view using the raw_join_query1_unilever_bak.sql logic
-        spark.sql("""
+        sql_str: str = """
                CREATE OR REPLACE TEMPORARY VIEW base_findings_view AS
                SELECT
                    findings.id as finding_id,
@@ -227,7 +230,12 @@ class AggregationServiceFiltersConfig:
                WHERE findings.package_name IS NOT NULL
                AND (findings.id <> aggregation_groups.main_finding_id
                OR findings.aggregation_group_id is null)
-               """)
+               """
+        if self.config.is_databricks is False:
+            sql_str = sql_str.replace("general_data.default.", "seemplicitytest.")
+
+        spark.sql(sql_str)
+
         # Now read the view as a DataFrame
         df = spark.table("base_findings_view")
         return df

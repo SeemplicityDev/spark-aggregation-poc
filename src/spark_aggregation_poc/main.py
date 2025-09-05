@@ -81,7 +81,7 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         # print(f"Read time: {time() - start:.2f} seconds")
         #
         start = time()
-        df_group_finding_relation: DataFrame = aggregation_service_multi_rules_from_catalog.aggregate(spark=spark)
+        df_group_finding_relation: DataFrame = aggregation_service_filters_config.aggregate(spark=spark)
         # df_groups_to_findings: DataFrame = aggregation_service_filters_config.aggregate(spark=spark, findings_df=df)
         print("\n=== Groups to findings Aggregation ===")
         df_group_finding_relation.show()

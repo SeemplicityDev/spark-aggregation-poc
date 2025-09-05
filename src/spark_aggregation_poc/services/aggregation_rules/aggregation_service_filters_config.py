@@ -29,7 +29,7 @@ class AggregationServiceFiltersConfig:
         print("loaded rules from DB")
         rules_df.show()
         spark_rules: list[SparkAggregationRule] = self.rule_loader.parse_rules_to_spark_format(rules_df)
-        print(f"transformed rules to spark format:\n {json.dumps(spark_rules, indent=4, default=str)}")
+        # print(f"transformed rules to spark format:\n {json.dumps(spark_rules, indent=4, default=str)}")
 
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
@@ -196,6 +196,7 @@ class AggregationServiceFiltersConfig:
                    plain_resources.r1_resource_type as resource_type,
                    plain_resources.tags_values as tags_values,
                    plain_resources.tags_key_values as tags_key_values,
+                   plain_resources.cloud_provider as cloud_provider,
                    findings_scores.finding_id as score_finding_id,
                    user_status.id as user_status_id,
                    user_status.actual_status_key,

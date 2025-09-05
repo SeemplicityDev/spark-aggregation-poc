@@ -1,9 +1,10 @@
+import json
 from typing import List, Dict, Any, Optional
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, collect_list, count, lit, concat_ws, coalesce
 
-from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader
+from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
 from spark_aggregation_poc.services.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
 from spark_aggregation_poc.services.column_aggregation_util import ColumnAggregationUtil
 
@@ -19,20 +20,20 @@ class AggregationServiceFiltersConfig:
         self.filters_config_processor = filters_config_processor
 
     def aggregate(self, spark:SparkSession, customer_id: Optional[int] = None) -> DataFrame:
-        df = self.create_base_df(spark)
+        findings_df = self.create_base_df(spark)
         # Load rules from database
         rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print("loaded rules from DB")
         rules_df.show()
-        spark_rules = self.rule_loader.parse_rules_to_spark_format(rules_df)
-        print(f"transformed rules to spark format:\n {spark_rules}")
+        spark_rules: list[SparkAggregationRule] = self.rule_loader.parse_rules_to_spark_format(rules_df)
+        print(f"transformed rules to spark format:\n {json.dumps(spark_rules, indent=4, default=str)}")
 
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
         all_results = []
 
         for rule_idx, rule in enumerate(spark_rules):
-            print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Type={rule.rule_type}")
+            print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Order={rule.order}, Type={rule.rule_type}")
 
             # Apply filters_config
             filtered_df = self.filters_config_processor.apply_filters_config_to_dataframe(

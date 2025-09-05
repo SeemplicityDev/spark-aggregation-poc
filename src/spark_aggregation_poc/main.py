@@ -76,21 +76,22 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
 
         from time import time
 
+        # start = time()
+        # read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
+        # print(f"Read time: {time() - start:.2f} seconds")
+        #
         start = time()
-        read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
-        print(f"Read time: {time() - start:.2f} seconds")
-
-        df_groups_to_findings: DataFrame = aggregation_service_multi_rules_from_catalog.aggregate(spark=spark)
+        df_group_finding_relation: DataFrame = aggregation_service_multi_rules_from_catalog.aggregate(spark=spark)
         # df_groups_to_findings: DataFrame = aggregation_service_filters_config.aggregate(spark=spark, findings_df=df)
         print("\n=== Groups to findings Aggregation ===")
-        start = time()
-        df_groups_to_findings.show()
-        print(f"Transform time: {time() - start:.2f} seconds")
+        df_group_finding_relation.show()
+        print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
-        # print("\n=== Writing to groups_to_findings table ===")
-        # start = time()
-        # write_service.write_groups_to_findings(df_transformed)
-        # print(f"Write time: {time() - start:.2f} seconds")
+        print("\n=== Writing to groups_to_findings table ===")
+        start = time()
+        write_service.write_group_finding_relation(df_group_finding_relation)
+        # write_service.write_groups_to_findings(df_groups_to_findings)
+        print(f"Write time: {time() - start:.2f} seconds")
 
 
     except Exception as e:

@@ -98,4 +98,6 @@ class RuleLoader:
 
             spark_rules.append(spark_rule)
 
+        spark_rules.sort(key=lambda x: x.order)
+
         return spark_rules

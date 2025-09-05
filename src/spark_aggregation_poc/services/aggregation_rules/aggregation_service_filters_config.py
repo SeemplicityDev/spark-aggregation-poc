@@ -5,6 +5,7 @@ from pyspark.sql.functions import col, collect_list, count, lit, concat_ws, coal
 
 from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader
 from spark_aggregation_poc.services.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
+from spark_aggregation_poc.services.column_aggregation_util import ColumnAggregationUtil
 
 
 # Usage Example
@@ -19,16 +20,7 @@ class AggregationServiceFiltersConfig:
 
     def aggregate(self, spark:SparkSession, findings_df: DataFrame,
                                            customer_id: Optional[int] = None) -> DataFrame:
-        """
-        Process findings using engine aggregation rules
-
-        Args:
-            findings_df: DataFrame with findings data
-            customer_id: Optional customer filter
-
-        Returns:
-            Aggregated findings DataFrame
-        """
+        df = self.create_base_df(spark)
         # Load rules from database
         rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print("loaded rules from DB")
@@ -108,17 +100,29 @@ class AggregationServiceFiltersConfig:
 
         print(f"Grouping by: {valid_columns}")
 
-        # Group and aggregate using your EngineAggregationCalculator
-        # (This would use the class we discussed earlier)
-        return df.groupBy(*valid_columns).agg(
-            collect_list("finding_id").alias("finding_ids"),
-            collect_list("root_cloud_account").alias("cloud_accounts"),
-            count("finding_id").alias("count"),
-            lit(rule_idx).alias("rule_number")
+        # # Group and aggregate using your EngineAggregationCalculator
+        # # (This would use the class we discussed earlier)
+        # return df.groupBy(*valid_columns).agg(
+        #     collect_list("finding_id").alias("finding_ids"),
+        #     collect_list("root_cloud_account").alias("cloud_accounts"),
+        #     count("finding_id").alias("count"),
+        #     lit(rule_idx).alias("rule_number")
+        # ).withColumn(
+        #     "group_id",
+        #     concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
+        # )
+
+        all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
+
+        result: DataFrame = df.groupBy(*valid_columns).agg(
+            *all_aggregations
         ).withColumn(
             "group_id",
             concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
         )
+
+        return result
+
 
     def clean_group_columns(self, group_columns: List[str]) -> List[str]:
         """
@@ -169,3 +173,44 @@ class AggregationServiceFiltersConfig:
             print(f"Available DataFrame columns: {sorted(df_columns)}")
 
         return valid_columns
+
+
+    def create_base_df(self, spark):
+        # After tables are saved to catalog, create a view from the raw join
+        print("Creating base findings view from catalog tables...")
+        # Create a temporary view using the raw_join_query1_unilever_bak.sql logic
+        spark.sql("""
+               CREATE OR REPLACE TEMPORARY VIEW base_findings_view AS
+               SELECT
+                   findings.id as finding_id,
+                   findings.package_name as package_name,
+                   findings.main_resource_id,
+                   findings.aggregation_group_id,
+                   plain_resources.cloud_account as root_cloud_account,
+                   plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
+                   findings.finding_type_str as finding_type_str,
+                   findings.fix_subtype as fix_subtype,
+                   statuses.category as category,
+                   findings.fix_id as fix_id,
+                   findings_additional_data.cve[1] as cve,
+                   findings.fix_type as fix_type
+               FROM general_data.default.findings
+               JOIN general_data.default.plain_resources ON
+                   findings.main_resource_id = plain_resources.id
+               JOIN general_data.default.findings_scores ON
+                   findings.id = findings_scores.finding_id
+               JOIN general_data.default.user_status ON
+                   user_status.id = findings.id
+               LEFT OUTER JOIN general_data.default.findings_additional_data ON
+                   findings.id = findings_additional_data.finding_id
+               JOIN general_data.default.statuses ON
+                   statuses.key = user_status.actual_status_key
+               LEFT OUTER JOIN general_data.default.aggregation_groups ON
+                   findings.aggregation_group_id = aggregation_groups.id
+               WHERE findings.package_name IS NOT NULL
+               AND (findings.id <> aggregation_groups.main_finding_id
+               OR findings.aggregation_group_id is null)
+               """)
+        # Now read the view as a DataFrame
+        df = spark.table("base_findings_view")
+        return df

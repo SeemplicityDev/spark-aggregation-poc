@@ -18,8 +18,7 @@ class AggregationServiceFiltersConfig:
         self.rule_loader = rule_loader
         self.filters_config_processor = filters_config_processor
 
-    def aggregate(self, spark:SparkSession, findings_df: DataFrame,
-                                           customer_id: Optional[int] = None) -> DataFrame:
+    def aggregate(self, spark:SparkSession, customer_id: Optional[int] = None) -> DataFrame:
         df = self.create_base_df(spark)
         # Load rules from database
         rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)

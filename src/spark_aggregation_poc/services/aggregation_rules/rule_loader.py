@@ -48,6 +48,7 @@ class RuleLoader:
                 "type" as rule_type,	
                 field_calculation
             FROM aggregation_rules
+            WHERE "type" = 'AGG'
         ) as aggregation_rules_query
         """
 

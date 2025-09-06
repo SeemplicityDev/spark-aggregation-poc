@@ -69,8 +69,8 @@ class AggregationServiceFiltersConfig:
                     all_finding_group_relation.append(df_finding_group_relation)
 
                     # Show sample
-                    df_group_agg_columns.show(3, truncate=False)
-                    df_group_agg_columns.select("group_id", "count", "rule_number").show(3, truncate=False)
+                    df_group_agg_columns.show(3)
+                    df_group_agg_columns.select("group_id", "count", "rule_number").show(3)
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 

@@ -234,7 +234,7 @@ class AggregationServiceFiltersConfig:
                    findings.rule_id,
                    finding_sla_rule_connections.finding_id as sla_connection_id,
                    plain_resources.id as resource_id,
-                   plain_resources.cloud_account as root_cloud_account,
+                   plain_resources.cloud_account,
                    plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
                    plain_resources.r1_resource_type as resource_type,
                    plain_resources.tags_values as tags_values,

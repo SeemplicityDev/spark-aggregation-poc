@@ -81,22 +81,18 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         # print(f"Read time: {time() - start:.2f} seconds")
         #
         start = time()
-        # df_group_finding_relation: DataFrame = aggregation_service_filters_config.aggregate(spark=spark)
-        # print("\n=== Groups to findings Aggregation ===")
-        # df_group_finding_relation.show()
-        # print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
         df_final_group_agg_columns, df_final_finding_group_relation = aggregation_service_filters_config.aggregate(spark=spark)
         print("\n=== Final Group Aggregation Columns ===")
         df_final_group_agg_columns.show()
         print("\n=== Final Finding Group Relation ===")
         df_final_finding_group_relation.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
-        #
-        # print("\n=== Writing to groups_to_findings table ===")
-        # start = time()
-        # write_service.write_group_finding_relation(df_group_finding_relation)
-        # # write_service.write_groups_to_findings(df_groups_to_findings)
-        # print(f"Write time: {time() - start:.2f} seconds")
+
+        print("\n=== Writing Aggregation table and Relation table ===")
+        start = time()
+        write_service.write_finding_group_aggregation_columns(df_final_group_agg_columns)
+        write_service.write_finding_group_relation(df_final_finding_group_relation)
+        print(f"Write time: {time() - start:.2f} seconds")
 
 
 

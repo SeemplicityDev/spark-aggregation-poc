@@ -9,5 +9,9 @@ class WriteService:
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
 
-    def write_group_finding_relation(self, df: DataFrame):
-        df.write.jdbc(url=self.postgres_url, table="group_finding_relation", mode="overwrite", properties=self.postgres_properties)
+    def write_finding_group_aggregation_columns(self, df: DataFrame):
+        df.write.jdbc(url=self.postgres_url, table="finding_group_aggregation_columns", mode="overwrite", properties=self.postgres_properties)
+
+
+    def write_finding_group_relation(self, df: DataFrame):
+        df.write.jdbc(url=self.postgres_url, table="finding_group_relation", mode="overwrite", properties=self.postgres_properties)

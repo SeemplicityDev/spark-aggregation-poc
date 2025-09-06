@@ -1,9 +1,8 @@
-import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import col, collect_list, count, lit, concat_ws, coalesce
+from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.services.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
@@ -22,7 +21,7 @@ class AggregationServiceFiltersConfig:
         self.rule_loader = rule_loader
         self.filters_config_processor = filters_config_processor
 
-    def aggregate(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> DataFrame:
+    def aggregate(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
         if findings_df is None:
             findings_df = self.create_base_df(spark)
         # Load rules from database
@@ -34,7 +33,8 @@ class AggregationServiceFiltersConfig:
 
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
-        all_results = []
+        all_group_agg_columns: List[DataFrame] = []
+        all_finding_group_relation: List[DataFrame] = []
 
         for rule_idx, rule in enumerate(spark_rules):
             start_time = datetime.now()
@@ -54,31 +54,39 @@ class AggregationServiceFiltersConfig:
 
             if rule.group_by:
                 # Apply grouping and aggregation
-                grouped_df = self.create_groups_with_filters_config(
+                df_group_agg_columns, df_finding_group_relation = self.create_groups_with_filters_config(
                     filtered_df,
                     rule.group_by,
                     rule_idx,
                     rule.filters_config
                 )
-                group_count = grouped_df.count()
+                group_count = df_group_agg_columns.count()
                 if group_count > 0:
                     print(f"Rule {rule_idx + 1}: Created {group_count} groups")
 
                     # 3. Add to results (no ID filtering)
-                    all_results.append(grouped_df)
+                    all_group_agg_columns.append(df_group_agg_columns)
+                    all_finding_group_relation.append(df_finding_group_relation)
 
                     # Show sample
-                    grouped_df.select("group_id", "count", "rule_number").show(3, truncate=False)
+                    df_group_agg_columns.show(3, truncate=False)
+                    df_group_agg_columns.select("group_id", "count", "rule_number").show(3, truncate=False)
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 
-        if all_results:
-            print(f"\n=== Final Results ===")
-            print(f"Combining results from {len(all_results)} rules")
+        df_final_group_agg_columns =  self.union_group_agg_columns(all_group_agg_columns, findings_df)
+        df_final_finding_group_relation = self.union_finding_group_relation(all_finding_group_relation, findings_df)
+
+        return df_final_group_agg_columns, df_final_finding_group_relation
+
+
+    def union_group_agg_columns(self, all_group_agg_columns, findings_df) -> DataFrame:
+        if all_group_agg_columns:
+            print(f"Combining results from {len(all_group_agg_columns)} rules")
 
             # Union all rule results
-            final_result = all_results[0]
-            for result in all_results[1:]:
+            final_result = all_group_agg_columns[0]
+            for result in all_group_agg_columns[1:]:
                 final_result = final_result.union(result)
 
             total_groups = final_result.count()
@@ -87,12 +95,30 @@ class AggregationServiceFiltersConfig:
 
             return final_result
         else:
-            print("❌ No groups created by any rule")
-            return df.limit(0)
+            print("❌ No group aggregations created by any rule")
+            return findings_df.limit(0)
+
+
+    def union_finding_group_relation(self, all_finding_group_relation: List[DataFrame], findings_df: DataFrame) -> DataFrame:
+        if all_finding_group_relation:
+            print(f"Combining results from {len(all_finding_group_relation)} rules")
+
+            # Union all rule results
+            final_result = all_finding_group_relation[0]
+            for result in all_finding_group_relation[1:]:
+                final_result = final_result.union(result)
+
+            total_findings = final_result.count()
+            print(f"✓ Final result: {total_findings:,} findings")
+
+            return final_result
+        else:
+            print("❌ No finding group relation created by any rule")
+            return findings_df.limit(0)
 
 
     def create_groups_with_filters_config(self, df: DataFrame, group_columns: List[str], rule_idx: int,
-                                          filters_config: Dict[str, Any]) -> DataFrame:
+                                          filters_config: Dict[str, Any]) -> tuple[DataFrame, DataFrame]:
         """
         Your existing create_groups method enhanced with filters_config
         """
@@ -119,14 +145,26 @@ class AggregationServiceFiltersConfig:
 
         all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
 
-        result: DataFrame = df.groupBy(*valid_columns).agg(
+        df_group_agg_columns: DataFrame = df.groupBy(*valid_columns).agg(
             *all_aggregations
         ).withColumn(
             "group_id",
             concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
         )
 
+        df_finding_group_relation: DataFrame = self.create_finding_group_relation(df_group_agg_columns)
+
+        return df_group_agg_columns, df_finding_group_relation
+
+
+    def create_finding_group_relation(self, df: DataFrame) -> DataFrame:
+        result: DataFrame = df.select(
+            col("group_id").alias("group_id"),
+            explode("finding_ids").alias("finding_id")
+        )
+
         return result
+
 
 
     def clean_group_columns(self, group_columns: List[str]) -> List[str]:

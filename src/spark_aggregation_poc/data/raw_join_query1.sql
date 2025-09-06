@@ -11,7 +11,6 @@ SELECT
     plain_resources.tags_key_values as tags_key_values,
     findings_scores.finding_id as score_finding_id,
     plain_resources.r1_resource_type as resource_type,
-    plain_resources.r1_resource_type as resource_type,
     plain_resources.cloud_provider as cloud_provider,
     user_status.id as user_status_id,
     user_status.actual_status_key,

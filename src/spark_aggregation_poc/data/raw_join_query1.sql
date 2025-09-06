@@ -3,13 +3,17 @@ SELECT
     findings.package_name as package_name,
     findings.main_resource_id,
     findings.aggregation_group_id,
+    findings.source,
+    findings.rule_family,
+    findings.rule_id,
     finding_sla_rule_connections.finding_id as sla_connection_id,
     plain_resources.id as resource_id,
-    plain_resources.cloud_account as root_cloud_account,
+    plain_resources.cloud_account,
     plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
     plain_resources.tags_values as tags_values,
     plain_resources.tags_key_values as tags_key_values,
     findings_scores.finding_id as score_finding_id,
+    findings_scores.severity,
     plain_resources.r1_resource_type as resource_type,
     plain_resources.cloud_provider as cloud_provider,
     user_status.id as user_status_id,
@@ -26,7 +30,8 @@ SELECT
     statuses.category as category,
     findings.fix_id as fix_id,
     findings_additional_Data.cve[1] as cve,
-    findings.fix_type as fix_type
+    findings.fix_type as fix_type,
+    selection_rules.scope_group as scope_group
 FROM findings
 LEFT OUTER JOIN finding_sla_rule_connections ON
     findings.id = finding_sla_rule_connections.finding_id
@@ -46,6 +51,10 @@ LEFT OUTER JOIN findings_info ON
     findings_info.id = findings.id
 LEFT OUTER JOIN aggregation_rules_findings_excluder ON
     findings.id = aggregation_rules_findings_excluder.finding_id
+LEFT OUTER JOIN scoring_rules ON
+    findings_scores.scoring_rule_id = scoring_rules.id
+LEFT OUTER JOIN selection_rules ON
+    scoring_rules.selection_rule_id = selection_rules.id
 WHERE findings.package_name IS NOT NULL
 AND (findings.id <> aggregation_groups.main_finding_id
 OR findings.aggregation_group_id is null)

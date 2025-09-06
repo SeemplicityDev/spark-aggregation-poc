@@ -229,6 +229,9 @@ class AggregationServiceFiltersConfig:
                    findings.package_name as package_name,
                    findings.main_resource_id,
                    findings.aggregation_group_id,
+                   findings.source,
+                   findings.rule_family,
+                   findings.rule_id,
                    finding_sla_rule_connections.finding_id as sla_connection_id,
                    plain_resources.id as resource_id,
                    plain_resources.cloud_account as root_cloud_account,
@@ -238,6 +241,7 @@ class AggregationServiceFiltersConfig:
                    plain_resources.tags_key_values as tags_key_values,
                    plain_resources.cloud_provider as cloud_provider,
                    findings_scores.finding_id as score_finding_id,
+                   findings_scores.severity,
                    user_status.id as user_status_id,
                    user_status.actual_status_key,
                    findings_additional_data.finding_id as additional_data_id,
@@ -252,7 +256,8 @@ class AggregationServiceFiltersConfig:
                    statuses.category as category,
                    findings.fix_id as fix_id,
                    findings_additional_data.cve[1] as cve,
-                   findings.fix_type as fix_type
+                   findings.fix_type as fix_type,
+                   selection_rules.scope_group as scope_group
                FROM general_data.default.findings
                LEFT OUTER JOIN general_data.default.finding_sla_rule_connections ON
                     findings.id = finding_sla_rule_connections.finding_id
@@ -270,12 +275,14 @@ class AggregationServiceFiltersConfig:
                    findings.aggregation_group_id = aggregation_groups.id
                LEFT OUTER JOIN general_data.default.findings_info ON
                    findings_info.id = findings.id
+               LEFT OUTER JOIN general_data.default.scoring_rules ON
+                    findings_scores.scoring_rule_id = scoring_rules.id
+               LEFT OUTER JOIN general_data.default.selection_rules ON
+                    scoring_rules.selection_rule_id = selection_rules.id
                WHERE findings.package_name IS NOT NULL
                AND (findings.id <> aggregation_groups.main_finding_id
                OR findings.aggregation_group_id is null)
                """
-        if self.config.is_databricks is False:
-            sql_str = sql_str.replace("general_data.default.", "seemplicitytest.")
 
         spark.sql(sql_str)
 

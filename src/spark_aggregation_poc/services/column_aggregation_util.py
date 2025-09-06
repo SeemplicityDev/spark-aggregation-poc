@@ -29,7 +29,7 @@ class ColumnAggregationUtil:
         # Basic aggregations (your original 4 lines)
         basic_aggs = [
             collect_list("finding_id").alias("finding_ids"),
-            collect_list("root_cloud_account").alias("cloud_accounts"),
+            collect_list("cloud_account").alias("cloud_accounts"),
             count("finding_id").alias("count"),
             lit(rule_idx).alias("rule_number")
         ]

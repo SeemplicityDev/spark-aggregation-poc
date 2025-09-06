@@ -13,6 +13,7 @@ class ReadServiceIndividualTablesSaveCatalog:
     def __init__(self, config: Config):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
+        self.config = config
 
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
@@ -36,7 +37,7 @@ class ReadServiceIndividualTablesSaveCatalog:
         # Define table categories
         large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
         medium_tables = ["finding_sla_rule_connections"]
-        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
+        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder", "scoring_rules", "selection_rules"]
 
         loaded_tables = {}
 
@@ -60,7 +61,6 @@ class ReadServiceIndividualTablesSaveCatalog:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
             self.save_to_catalog(df, table_name)
-
 
     def save_to_catalog(self, df, table_name):
         from datetime import datetime

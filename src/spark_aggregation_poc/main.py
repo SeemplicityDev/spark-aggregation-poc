@@ -1,6 +1,6 @@
 import os
 
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, DataFrame
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.dal.read_service import ReadService
@@ -88,11 +88,11 @@ def _run_aggregation(spark: SparkSession, config: Config = None):
         df_final_finding_group_relation.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
-        print("\n=== Writing Aggregation table and Relation table ===")
-        start = time()
-        write_service.write_finding_group_aggregation_columns(df_final_group_agg_columns)
-        write_service.write_finding_group_relation(df_final_finding_group_relation)
-        print(f"Write time: {time() - start:.2f} seconds")
+        # print("\n=== Writing Aggregation table and Relation table ===")
+        # start = time()
+        # write_service.write_finding_group_aggregation_columns(df_final_group_agg_columns)
+        # write_service.write_finding_group_relation(df_final_finding_group_relation)
+        # print(f"Write time: {time() - start:.2f} seconds")
 
 
 

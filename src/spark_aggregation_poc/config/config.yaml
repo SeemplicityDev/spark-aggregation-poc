@@ -5,3 +5,4 @@ postgres:
     user: myuser
     password: mypassword
     driver: org.postgresql.Driver
+  customer: seemplicitytest

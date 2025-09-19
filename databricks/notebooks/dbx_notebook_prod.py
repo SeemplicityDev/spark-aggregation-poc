@@ -7,13 +7,14 @@ sys.path.append("/Workspace/Users/eran@seemplicity.io/spark-aggregation-poc/src"
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.main import run_aggregation
 
-config: Config = Config(postgres_url="jdbc:postgresql://vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com:54323/postgres?currentSchema=seemplicitydemo",
+config: Config = Config(postgres_url="jdbc:postgresql://vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com:54323/postgres?currentSchema=carlsberg",
                         postgres_properties={
                             "user": "postgres",
                             "password": "vCo8trJkeg57Vp53",
                             "driver": "org.postgresql.Driver"
                         },
-                        is_databricks = True
+                        is_databricks = True,
+                        customer = "Carlsberg"
 )
 # Cell 1: Monitor cluster configuration
 print("=== Cluster Configuration ===")

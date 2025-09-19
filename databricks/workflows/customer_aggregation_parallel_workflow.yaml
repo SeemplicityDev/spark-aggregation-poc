@@ -1,0 +1,64 @@
+resources:
+  jobs:
+    Customer_Aggregation_Parallel_Workflow:
+      name: Customer_Aggregation_Parallel_Workflow
+      email_notifications:
+        on_success:
+          - eran@seemplicity.io
+        on_failure:
+          - eran@seemplicity.io
+      timeout_seconds: 14400
+      tasks:
+        - task_key: unilever_aggregation
+          notebook_task:
+            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/notebooks/dbx_notebook_parameterized.py
+            base_parameters:
+              customer_schema: unilever
+              postgres_host: vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com
+              postgres_port: "54322"
+              postgres_db: postgres
+              postgres_user: postgres
+              postgres_password: T66AWCNJGW!!jqML
+            source: WORKSPACE
+          job_cluster_key: aggregation_cluster
+          timeout_seconds: 7200
+        - task_key: carlsberg_aggregation
+          notebook_task:
+            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/notebooks/dbx_notebook_parameterized.py
+            base_parameters:
+              customer_schema: carlsberg
+              postgres_host: vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com
+              postgres_port: "5432"
+              postgres_db: postgres
+              postgres_user: postgres
+              postgres_password: vCo8trJkeg57Vp53
+            source: WORKSPACE
+          job_cluster_key: aggregation_cluster
+          timeout_seconds: 7200
+      job_clusters:
+        - job_cluster_key: aggregation_cluster
+          new_cluster:
+            spark_version: 13.3.x-scala2.12
+            spark_conf:
+              spark.sql.adaptive.enabled: "true"
+              spark.sql.adaptive.coalescePartitions.enabled: "true"
+              spark.databricks.delta.retentionDurationCheck.enabled: "false"
+              spark.databricks.delta.schema.autoMerge.enabled: "true"
+            aws_attributes:
+              availability: SPOT_WITH_FALLBACK
+              zone_id: eu-central-1b
+            node_type_id: i3.xlarge
+            custom_tags:
+              project: spark-aggregation-poc
+              environment: production
+            enable_elastic_disk: false
+            data_security_mode: SINGLE_USER
+            autoscale:
+              min_workers: 4
+              max_workers: 8
+      tags:
+        environment: production
+        project: spark-aggregation-poc
+        purpose: parallel-customer-aggregation
+      queue:
+        enabled: true

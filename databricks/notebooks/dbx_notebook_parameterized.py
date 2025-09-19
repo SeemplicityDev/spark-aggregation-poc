@@ -43,12 +43,13 @@ from spark_aggregation_poc.run_aggregation import run_aggregation
 config = Config(
     postgres_url=f"jdbc:postgresql://{postgres_host}:{postgres_port}/{postgres_db}?currentSchema={customer_schema}",
     postgres_properties={
-        "user": {postgres_user},
-        "password": {postgres_password},
+        "user": postgres_user,
+        "password": postgres_password,
         "driver": "org.postgresql.Driver"
     },
-    customer=customer_schema,
-    is_databricks=True
+    is_databricks=True,
+    customer=customer_schema
+
 )
 
 # COMMAND ----------

@@ -5,10 +5,10 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit, col, broadcast
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IReadFindings
+from spark_aggregation_poc.interfaces.interfaces import IFindingsReader
 
 
-class ReadService(IReadFindings):
+class ReadService(IFindingsReader):
    
 
     def __init__(self, config: Config):

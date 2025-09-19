@@ -5,13 +5,14 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
 from spark_aggregation_poc.utils.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
 from spark_aggregation_poc.services.aggregation.column_aggregation_util import ColumnAggregationUtil
 
 
 # Usage Example
-class AggregationService:
+class AggregationService(IFindingsAggregator):
     """
     Your main aggregation service using engine rules
     """
@@ -21,7 +22,7 @@ class AggregationService:
         self.rule_loader = rule_loader
         self.filters_config_processor = filters_config_processor
 
-    def aggregate(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
+    def aggregate_findings(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
         if findings_df is None:
             findings_df = self.create_base_df(spark)
         # Load rules from database

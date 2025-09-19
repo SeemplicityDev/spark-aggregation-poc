@@ -1,21 +1,18 @@
 from dataclasses import dataclass
 
 from spark_aggregation_poc.config.config import Config, ConfigLoader
-from spark_aggregation_poc.interfaces.interfaces import IReadFindings
-from spark_aggregation_poc.services.read_service import ReadService
-from spark_aggregation_poc.services.write_service import WriteService
 from spark_aggregation_poc.factory.factory import Factory
-from spark_aggregation_poc.services.aggregation.aggregation_service import \
-    AggregationService
+from spark_aggregation_poc.interfaces.interfaces import IFindingsReader, IFindingsAggregator, IAggregatedWriter
+from spark_aggregation_poc.services.write_service import WriteService
 
 
 @dataclass
 class AppContext:
     config: Config
     # read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches
-    read_service: IReadFindings
-    write_service: WriteService
-    aggregation_service: AggregationService
+    read_service: IFindingsReader
+    aggregation_service: IFindingsAggregator
+    write_service: IAggregatedWriter
 
 def build_app_context(config: Config = None) -> AppContext:
     if config is None:
@@ -23,7 +20,7 @@ def build_app_context(config: Config = None) -> AppContext:
     print("=== Building AppContext, Config:===")
     print(config)
     # read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = Factory.create_read_service_raw_join_multi_connection_batches(config)
-    read_service: IReadFindings = Factory.create_reader(config)
-    write_service: WriteService = Factory.create_write_service(config)
-    aggregation_service_filters_config: AggregationService = Factory.create_aggregation_service(config)
-    return AppContext(config, read_service, write_service,  aggregation_service_filters_config)
+    read_service: IFindingsReader = Factory.create_reader(config)
+    aggregation_service: IFindingsAggregator = Factory.create_aggregator(config)
+    write_service: IAggregatedWriter = Factory.create_write_service(config)
+    return AppContext(config=config, read_service=read_service, aggregation_service=aggregation_service, write_service=write_service)

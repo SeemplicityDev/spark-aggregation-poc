@@ -1,6 +1,6 @@
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IReadFindings
+from spark_aggregation_poc.interfaces.interfaces import IFindingsReader, IFindingsAggregator, IAggregatedWriter
 from spark_aggregation_poc.services.read_service import ReadService
 from spark_aggregation_poc.services.write_service import WriteService
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
@@ -16,18 +16,18 @@ class Factory:
     #     return ReadServiceRawJoinMultiConnectionBatches(config=config)
 
     @classmethod
-    def create_reader(cls, config: Config) -> IReadFindings:
+    def create_reader(cls, config: Config) -> IFindingsReader:
         return ReadService(config=config)
 
     @classmethod
-    def create_write_service(cls, config: Config) -> WriteService:
-        return WriteService(config=config)
-
-
-    @classmethod
-    def create_aggregation_service(cls, config: Config) -> AggregationService:
+    def create_aggregator(cls, config: Config) -> IFindingsAggregator:
         rule_loader = RuleLoader(config)
         filters_config_processor = FiltersConfigProcessor()
         return AggregationService(config=config, rule_loader=rule_loader, filters_config_processor=filters_config_processor)
+
+
+    @classmethod
+    def create_write_service(cls, config: Config) -> IAggregatedWriter:
+        return WriteService(config=config)
 
 

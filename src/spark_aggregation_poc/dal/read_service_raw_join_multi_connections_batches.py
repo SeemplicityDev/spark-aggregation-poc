@@ -1,9 +1,7 @@
 import os
-from datetime import time
 from typing import List, Tuple
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit
 
 from spark_aggregation_poc.config.config import Config
 

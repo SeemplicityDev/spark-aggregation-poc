@@ -5,6 +5,7 @@ from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
 from spark_aggregation_poc.models.finding_data import FindingData
 
+# TODO: remove class
 
 def row_to_finding_data(row: Row) -> FindingData:
     """Convert a Spark Row directly to FindingData object"""

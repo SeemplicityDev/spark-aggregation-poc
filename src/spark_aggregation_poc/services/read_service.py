@@ -7,31 +7,37 @@ from pyspark.sql.functions import lit, col, broadcast
 from spark_aggregation_poc.config.config import Config
 
 
-class ReadServiceIndividualTablesMultiConnectionBatches:
+class ReadService:
    
 
     def __init__(self, config: Config):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
-
+        self.config = config
 
     def read_findings_data(self, spark: SparkSession,
-                                        large_table_batch_size: int = 3200000,
-                                        connections_per_batch: int = 32) -> DataFrame:
+                           large_table_batch_size: int = 3200000,
+                           connections_per_batch: int = 32,
+                           max_id_override: int = 15000000):
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
         Large tables (L): findings, findings_scores, user_status, findings_info, findings_additional_data
         Medium tables (M): finding_sla_rule_connections, plain_resources
         Small tables (S): statuses, aggregation_groups, aggregation_rules_findings_excluder
+
+        Args:
+            max_id_override: Optional max ID limit to stop processing before complete large tables
         """
 
         print("=== Loading Tables Separately by Size and Joining in Spark ===")
+        if max_id_override:
+            print(f"Using max_id_override: {max_id_override:,}")
 
         # Define table categories
-        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data"]
-        medium_tables = ["finding_sla_rule_connections", "plain_resources"]
-        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder"]
+        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
+        medium_tables = ["finding_sla_rule_connections"]
+        small_tables = ["statuses", "aggregation_groups", "aggregation_rules_findings_excluder", "scoring_rules", "selection_rules"]
 
         loaded_tables = {}
 
@@ -39,53 +45,101 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         print("\n--- Loading Large Tables (Batched Multi-Connection) ---")
         for table_name in large_tables:
             print(f"\nLoading large table: {table_name}")
-            df = self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch)
-            df = df.persist()
-            count = df.count()
-            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
-            loaded_tables[table_name] = df
+            self.load_large_table_batched(spark, table_name, large_table_batch_size, connections_per_batch,
+                                               max_id_override)
 
         # 2. Load Medium Tables (M) - Use simple multi-connection
         print("\n--- Loading Medium Tables (Multi-Connection) ---")
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
-            df = self.load_medium_table(spark, table_name)
-            df = df.persist()
-            count = df.count()
-            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
-            loaded_tables[table_name] = df
+            df = self.load_medium_table(spark, table_name, max_id_override)
+            self.save_to_catalog(df, table_name)
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
         print("\n--- Loading Small Tables (Single Connection + Broadcast) ---")
         for table_name in small_tables:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
-            df = df.persist()
-            count = df.count()
-            print(f"✓ {table_name}: {count:,} rows loaded and persisted")
-            loaded_tables[table_name] = df
+            self.save_to_catalog(df, table_name)
 
-        # 4. Perform Spark joins in optimal order
-        print("\n--- Performing Spark Joins ---")
-        result_df = self.join_all_tables(loaded_tables)
+    # def save_to_catalog(self, df, table_name):
+    #     from datetime import datetime
+    #
+    #     df.write \
+    #         .mode("append") \
+    #         .saveAsTable(f"general_data.default.{table_name}")
+    #     save_start_time = datetime.now()
+    #     print(f"✓ {table_name}: loaded and saved to catalog at: {save_start_time.strftime('%H:%M:%S')}")
 
-        # Final persistence and count
-        result_df = result_df.persist()
-        final_count = result_df.count()
-        print(f"✓ Final joined result: {final_count:,} rows")
+    # def save_to_catalog(self, df, table_name):
+    #     import os
+    #     from datetime import datetime
+    #
+    #     if self.config.is_databricks:
+    #         # Production Databricks - uses Unity Catalog
+    #         df.write \
+    #             .mode("append") \
+    #             .saveAsTable(f"general_data.default.{table_name}")
+    #         print(f"✓ {table_name}: saved to Databricks Unity Catalog")
+    #     else:
+    #         self.save_to_catalog_local_development(df, table_name)
+    #
+    #     save_start_time = datetime.now()
+    #     print(f"Save completed at: {save_start_time.strftime('%H:%M:%S')}")
 
-        return result_df
+    def save_to_catalog(self, df, table_name):
+        from datetime import datetime
+
+        # Determine the catalog and table reference based on environment
+        if self.config.is_databricks:
+            catalog_table = f"general_data.default.{table_name}"
+            environment = "Databricks Unity Catalog"
+        else:
+            catalog_table = f"spark_catalog.default.{table_name}"
+            environment = "local spark_catalog"
+
+        print(f"Saving {table_name} to {environment}")
+
+        try:
+            # Unified approach: use saveAsTable for both environments
+            df.write \
+                .format("delta") \
+                .mode("overwrite") \
+                .saveAsTable(catalog_table)
+            print(f"✓ {table_name}: saved to {catalog_table}")
+
+        except Exception as e:
+            print(f"❌ Failed to save {table_name} to catalog: {e}")
+
+        save_start_time = datetime.now()
+        print(f"Save completed at: {save_start_time.strftime('%H:%M:%S')}")
 
 
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
-                                 batch_size: int, connections_per_batch: int) -> DataFrame:
+                                 batch_size: int, connections_per_batch: int,
+                                 max_id_override: int = None):
         """Load large table using batched multi-connection approach"""
 
         # Get ID bounds
         id_column = self.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
 
-        print(f"  {table_name} ID range: {min_id:,} to {max_id:,}")
+        # Handle empty tables
+        if min_id == 0 and max_id == 0:
+            print(f"  {table_name} is empty, skipping...")
+            return
+
+        # Apply max_id_override if provided
+        if max_id_override is not None:
+            original_max_id = max_id
+            max_id = min(max_id, max_id_override)
+            if max_id < original_max_id:
+                print(
+                    f"  {table_name} ID range limited by override: {min_id:,} to {max_id:,} (original max: {original_max_id:,})")
+            else:
+                print(f"  {table_name} ID range: {min_id:,} to {max_id:,} (override {max_id_override:,} not applied)")
+        else:
+            print(f"  {table_name} ID range: {min_id:,} to {max_id:,}")
 
         # Calculate batches
         total_range = max_id - min_id + 1
@@ -94,39 +148,58 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
 
         batches = []
 
+        from datetime import datetime
+
         for batch_num in range(num_batches):
             start_id = min_id + (batch_num * batch_size)
             end_id = min(start_id + batch_size - 1, max_id)
 
+            print(f"\n--- Batch {batch_num}/{num_batches} ---")
             print(f"    Batch {batch_num + 1}/{num_batches}: {id_column} {start_id:,} to {end_id:,}")
+            batch_start_time = datetime.now()
+            print(f"🕐 [BATCH START] Batch {batch_num} started at: {batch_start_time.strftime('%H:%M:%S')}")
 
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch
             )
+            self.save_to_catalog(batch_df, table_name)
 
-            # Force materialization to prevent thundering herd
-            batch_df = batch_df.persist()
-            batch_count = batch_df.count()
-            print(f"      Loaded: {batch_count:,} rows")
+            # # # Force materialization to prevent thundering herd
+            # # batch_df = batch_df.persist()
+            # # batch_count = batch_df.count()
+            # print(f"      Loaded: {batch_count:,} rows")
+            #
+            # if batch_count > 0:
+            # batches.append(batch_df)
 
-            if batch_count > 0:
-                batches.append(batch_df)
-
-        # Union all batches using tree-reduction
-        if len(batches) > 1:
-            print(f"  Combining {len(batches)} {table_name} batches...")
-            return self.safe_union_all_batches(batches)
-        elif len(batches) == 1:
-            return batches[0]
-        else:
-            return self.get_empty_table_dataframe(spark, table_name)
+        # # Union all batches using tree-reduction
+        # if len(batches) > 1:
+        #     print(f"  Combining {len(batches)} {table_name} batches...")
+        #     return self.safe_union_all_batches(batches)
+        # elif len(batches) == 1:
+        #     return batches[0]
+        # else:
+        #     return self.get_empty_table_dataframe(spark, table_name)
 
 
-    def load_medium_table(self, spark: SparkSession, table_name: str) -> DataFrame:
+    def load_medium_table(self, spark: SparkSession, table_name: str,
+                          max_id_override: int = None) -> DataFrame:
         """Load medium table using simple multi-connection partitioning"""
 
         id_column = self.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
+
+        # Handle empty tables
+        if min_id == 0 and max_id == 0:
+            print(f"  {table_name} is empty, returning empty DataFrame...")
+            return self.get_empty_table_dataframe(spark, table_name)
+
+        # Apply max_id_override if provided
+        if max_id_override is not None:
+            original_max_id = max_id
+            max_id = min(max_id, max_id_override)
+            if max_id < original_max_id:
+                print(f"  {table_name} ID range limited by override: {min_id:,} to {max_id:,} (original max: {original_max_id:,})")
 
         return spark.read.jdbc(
             url=self.postgres_url,
@@ -298,7 +371,6 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         }
         return id_columns.get(table_name, "id")
 
-
     def get_table_id_bounds(self, spark: SparkSession, table_name: str, id_column: str) -> Tuple[int, int]:
         """Get min and max ID for a table"""
 
@@ -311,7 +383,15 @@ class ReadServiceIndividualTablesMultiConnectionBatches:
         )
 
         row = bounds_df.collect()[0]
-        return int(row['min_id']), int(row['max_id'])
+        min_id = row['min_id']
+        max_id = row['max_id']
+
+        # Handle empty tables (MIN/MAX return NULL)
+        if min_id is None or max_id is None:
+            print(f"⚠️  Table {table_name} appears to be empty (min_id={min_id}, max_id={max_id})")
+            return 0, 0  # Return default values for empty tables
+
+        return int(min_id), int(max_id)
 
 
     def get_empty_table_dataframe(self, spark: SparkSession, table_name: str) -> DataFrame:

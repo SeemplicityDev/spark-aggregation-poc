@@ -1,54 +1,37 @@
 import os
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import SparkSession
 
-from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.dal.read_service import ReadService
-from spark_aggregation_poc.dal.read_service_individual_tables_multi_connections_batches import \
-    ReadServiceIndividualTablesMultiConnectionBatches
-from spark_aggregation_poc.dal.read_service_individual_tables_save_catalog import ReadServiceIndividualTablesSaveCatalog
-from spark_aggregation_poc.dal.read_service_pre_partition import ReadServicePrePartition
-from spark_aggregation_poc.dal.read_service_raw import ReadServiceRaw
-from spark_aggregation_poc.dal.read_service_raw_join import ReadServiceRawJoin
-from spark_aggregation_poc.dal.read_service_raw_join_multi_connections_batches import \
-    ReadServiceRawJoinMultiConnectionBatches
-from spark_aggregation_poc.dal.write_service import WriteService
-from spark_aggregation_poc.factory.context import build_app_context, AppContext
-from spark_aggregation_poc.services.aggregation_rules.aggregation_service_filters_config import \
-    AggregationServiceFiltersConfig
-from spark_aggregation_poc.services.aggregation_rules.read_service_filters_config import ReadServiceFiltersConfig
-from spark_aggregation_poc.services.aggregation_service import AggregationService
-from spark_aggregation_poc.services.aggregation_service_multi_rules_from_catalog import \
-    AggregationServiceMultiRulesFromCatalog
-from spark_aggregation_poc.services.aggregation_service_multi_rules_no_write import AggregationServiceMultiRulesNoWrite
-from spark_aggregation_poc.services.aggregation_service_raw_join import AggregationServiceRawJoin
+from spark_aggregation_poc.run_aggregation import run_aggregation
 
-"""
-TODO:
-
-2. Use aggregation_query1.sql to select from DB (maybe remove 'group_by') 
-3. Implement algorithm
-"""
-
-
-
-def run_aggregation_from_dbx(spark: SparkSession, config: Config = None):
-    _run_aggregation(spark, config)
 
 def main():
-
-    jar_path = get_jar_path()
-
     spark = SparkSession.builder \
         .appName("PostgreSQLSparkApp") \
         .master("local[*]") \
-        .config("spark.jars", jar_path) \
+        .config("spark.jars", get_postgres_jar_path()) \
+        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0") \
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+        .config("spark.sql.warehouse.dir", get_local_warehouse_path()) \
+        .config("spark.databricks.delta.retentionDurationCheck.enabled", "false") \
+        .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
         .getOrCreate()
 
-    _run_aggregation(spark)
+    # Debug: Check available catalogs
+    print("Available catalogs:")
+    try:
+        spark.sql("SHOW CATALOGS").show()
+    except:
+        print("SHOW CATALOGS not supported")
+
+    run_aggregation(spark)
 
 
-def get_jar_path():
+
+
+
+def get_postgres_jar_path():
     current_file = os.path.abspath(__file__)
     current_dir = os.path.dirname(current_file)  # src/spark_aggregation_poc/
     jar_path = os.path.join(current_dir, "jars", "postgresql-42.7.1.jar")
@@ -56,66 +39,12 @@ def get_jar_path():
     return jar_path
 
 
-def _run_aggregation(spark: SparkSession, config: Config = None):
-    try:
-        app_context: AppContext = build_app_context(config)
-        read_service: ReadService = app_context.read_service
-        read_service_pre_partition: ReadServicePrePartition = app_context.read_service_pre_partition
-        read_service_raw_join: ReadServiceRawJoin = app_context.read_service_raw_join
-        read_service_raw_join_multi_connection_batches: ReadServiceRawJoinMultiConnectionBatches = app_context.read_service_raw_join_multi_connection_batches
-        create_read_service_individual_tables_multi_connection_batches: ReadServiceIndividualTablesMultiConnectionBatches = app_context.read_service_individual_tables_connection_batches
-        read_service_raw: ReadServiceRaw = app_context.read_service_raw
-        read_service_filters_config: ReadServiceFiltersConfig = app_context.read_service_filters_config
-        read_service_individual_tables_save_catalog: ReadServiceIndividualTablesSaveCatalog = app_context.read_service_individual_tables_save_catalog
-        write_service: WriteService = app_context.write_service
-        aggregation_service: AggregationService = app_context.aggregation_service
-        aggregation_service_raw_join: AggregationServiceRawJoin = app_context.aggregation_service_raw_join
-        aggregation_service_multi_rules_no_write: AggregationServiceMultiRulesNoWrite = app_context.aggregation_service_multi_rules_no_write
-        aggregation_service_filters_config: AggregationServiceFiltersConfig = app_context.aggregation_service_filters_config
-        aggregation_service_multi_rules_from_catalog: AggregationServiceMultiRulesFromCatalog = app_context.aggregation_service_multi_rules_from_catalog
-
-        from time import time
-
-        start = time()
-        read_service_individual_tables_save_catalog.read_findings_data(spark=spark)
-        print(f"Read time: {time() - start:.2f} seconds")
-
-        start = time()
-        df_final_group_agg_columns, df_final_finding_group_relation = aggregation_service_filters_config.aggregate(spark=spark)
-        print("\n=== Final Group Aggregation Columns ===")
-        df_final_group_agg_columns.show()
-        print("\n=== Final Finding Group Relation ===")
-        df_final_finding_group_relation.show()
-        print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
-
-        # print("\n=== Writing Aggregation table and Relation table ===")
-        # start = time()
-        # write_service.write_finding_group_aggregation_columns(df_final_group_agg_columns)
-        # write_service.write_finding_group_relation(df_final_finding_group_relation)
-        # print(f"Write time: {time() - start:.2f} seconds")
-
-
-
-
-        # # run locally
-        # findings_df: DataFrame = read_service_raw_join_multi_connection_batches.read_findings_data(spark=spark)
-        # start = time()
-        # df_final_group_agg_columns, df_final_finding_group_relation = aggregation_service_filters_config.aggregate(spark=spark, findings_df=findings_df)
-        # print("\n=== Final Group Aggregation Columns ===")
-        # df_final_group_agg_columns.show()
-        # print("\n=== Final Finding Group Relation ===")
-        # df_final_finding_group_relation.show()
-        # print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
-        # # run locally
-
-
-    except Exception as e:
-        print(f"Error aggregating! {e}")
-        # TODO: add rollback functionality (first write to staging_table and validate the expected count (inside driver))
-    finally:
-        # Stop Spark
-        if(config and config.is_databricks is False):
-            spark.stop()
+def get_local_warehouse_path():
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)  # src/spark_aggregation_poc/
+    warehouse_path = os.path.join(current_dir, "local-catalog")
+    print("local_warehouse_path:", warehouse_path)
+    return warehouse_path
 
 
 if __name__ == "__main__":

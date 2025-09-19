@@ -41,8 +41,9 @@ def get_postgres_jar_path():
 
 def get_local_warehouse_path():
     current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)  # src/spark_aggregation_poc/
-    warehouse_path = os.path.join(current_dir, "local-catalog")
+    # Go up from src/spark_aggregation_poc/ to project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    warehouse_path = os.path.join(project_root, "local-catalog")
     print("local_warehouse_path:", warehouse_path)
     return warehouse_path
 

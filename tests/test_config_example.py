@@ -1,7 +1,11 @@
 import pytest
 import os
 from unittest.mock import patch
-from spark_aggregation_poc import Config, Environment
+
+from spark_aggregation_poc.config.config import Config
+
+
+# from spark_aggregation_poc import Config, Environment
 
 
 class TestConfigPatterns:

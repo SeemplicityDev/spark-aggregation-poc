@@ -5,9 +5,10 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit, col, broadcast
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.interfaces.interfaces import IReadFindings
 
 
-class ReadService:
+class ReadService(IReadFindings):
    
 
     def __init__(self, config: Config):
@@ -18,7 +19,7 @@ class ReadService:
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           max_id_override: int = 20000000):
+                           max_id_override: int = 20000000) -> None:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 

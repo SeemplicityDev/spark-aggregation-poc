@@ -1,5 +1,6 @@
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.interfaces.interfaces import IReadFindings
 from spark_aggregation_poc.services.read_service import ReadService
 from spark_aggregation_poc.services.write_service import WriteService
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
@@ -15,7 +16,7 @@ class Factory:
     #     return ReadServiceRawJoinMultiConnectionBatches(config=config)
 
     @classmethod
-    def create_read_service(cls, config: Config) -> ReadService:
+    def create_reader(cls, config: Config) -> IReadFindings:
         return ReadService(config=config)
 
     @classmethod

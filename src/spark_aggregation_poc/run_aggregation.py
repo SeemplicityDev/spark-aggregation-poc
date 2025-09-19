@@ -1,4 +1,5 @@
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.interfaces.interfaces import IReadFindings
 from spark_aggregation_poc.services.read_service import ReadService
 from spark_aggregation_poc.services.write_service import WriteService
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
@@ -11,15 +12,15 @@ from pyspark.sql import SparkSession
 def run_aggregation(spark: SparkSession, config: Config = None):
     try:
         app_context: AppContext = build_app_context(config)
-        read_service: ReadService = app_context.read_service
+        read_service: IReadFindings = app_context.read_service
         write_service: WriteService = app_context.write_service
         aggregation_service: AggregationService = app_context.aggregation_service
 
         from time import time
 
-        # start = time()
-        # read_service.read_findings_data(spark=spark)
-        # print(f"Read time: {time() - start:.2f} seconds")
+        start = time()
+        read_service.read_findings_data(spark=spark)
+        print(f"Read time: {time() - start:.2f} seconds")
 
         start = time()
         df_final_group_agg_columns, df_final_finding_group_association = aggregation_service.aggregate(spark=spark)

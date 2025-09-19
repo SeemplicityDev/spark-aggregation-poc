@@ -17,14 +17,14 @@ dbutils.widgets.text("postgres_port", "54323", "PostgreSQL Port")
 dbutils.widgets.text("postgres_db", "postgres", "PostgreSQL Database")
 dbutils.widgets.text("db_schema", "carlsberg", "Database customer schema")
 dbutils.widgets.text("postgres_user", "postgres", "PostgreSQL User")
-dbutils.widgets.text("postgres_password", "your-password", "PostgreSQL Password")
+dbutils.widgets.text("postgres_password", "vCo8trJkeg57Vp53", "PostgreSQL Password")
 
 customer_schema = dbutils.widgets.get("customer_schema")
 postgres_host = dbutils.widgets.get("postgres_host")
 postgres_port = dbutils.widgets.get("postgres_port")
 postgres_db = dbutils.widgets.get("postgres_db")
 postgres_user = dbutils.widgets.get("postgres_user")
-postgres_password = dbutils.widgets.get("vCo8trJkeg57Vp53")
+postgres_password = dbutils.widgets.get("postgres_password")
 
 print(f"Processing customer: {customer_schema}")
 

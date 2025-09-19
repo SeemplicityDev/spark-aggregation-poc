@@ -35,7 +35,7 @@ import sys
 sys.path.append("/Workspace/Users/eran@seemplicity.io/spark-aggregation-poc/src")
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.main import run_aggregation
+from spark_aggregation_poc.run_aggregation import run_aggregation
 
 # COMMAND ----------
 

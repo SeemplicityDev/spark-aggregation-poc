@@ -11,7 +11,7 @@ resources:
       tasks:
         - task_key: unilever_aggregation
           notebook_task:
-            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/notebooks/dbx_notebook_parameterized.py
+            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/databricks/notebooks/dbx_notebook_parameterized.py
             base_parameters:
               customer_schema: unilever
               postgres_host: vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com
@@ -24,7 +24,7 @@ resources:
           timeout_seconds: 7200
         - task_key: carlsberg_aggregation
           notebook_task:
-            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/notebooks/dbx_notebook_parameterized.py
+            notebook_path: /Users/eran@seemplicity.io/spark-aggregation-poc/databricks/notebooks/dbx_notebook_parameterized.py
             base_parameters:
               customer_schema: carlsberg
               postgres_host: vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com

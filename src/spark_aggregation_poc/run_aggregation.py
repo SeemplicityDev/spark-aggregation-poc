@@ -30,11 +30,11 @@ def run_aggregation(spark: SparkSession, config: Config = None):
         df_final_finding_group_association.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
-        print("\n=== Writing Aggregation table and Association table ===")
-        start = time()
-        write_service.write_finding_group_aggregation(df_final_group_agg_columns)
-        write_service.write_finding_group_association(df_final_finding_group_association)
-        print(f"Write time: {time() - start:.2f} seconds")
+        # print("\n=== Writing Aggregation table and Association table ===")
+        # start = time()
+        # write_service.write_finding_group_aggregation(df_final_group_agg_columns)
+        # write_service.write_finding_group_association(df_final_finding_group_association)
+        # print(f"Write time: {time() - start:.2f} seconds")
 
     except Exception as e:
         print(f"Error aggregating! {e}")

@@ -1,7 +1,7 @@
 resources:
   jobs:
-    Customer_Aggregation_Parallel_For_Each:
-      name: Customer_Aggregation_Parallel_For_Each
+    Run_Aggregation_All_Customers:
+      name: Run_Aggregation_All_Customers
       email_notifications:
         on_success:
           - eran@seemplicity.io
@@ -14,7 +14,7 @@ resources:
             inputs: '[{"customer_schema":"carlsberg","postgres_host":"vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com","postgres_port":54323,"postgres_db":"postgres","postgres_user":"postgres","postgres_password":"vCo8trJkeg57Vp53"},{"customer_schema":"unilever","postgres_host":"vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com","postgres_port":54322,"postgres_db":"postgres","postgres_user":"postgres","postgres_password":"T66AWCNJGW!!jqML"}]'
             concurrency: 10
             task:
-              task_key: loop_over_customers_iteration
+              task_key: test_print_customer
               notebook_task:
                 notebook_path: /Workspace/Users/eran@seemplicity.io/test_print_customer
                 base_parameters:

@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 
 # Databricks notebook source
@@ -10,23 +11,25 @@ import os
 
 # COMMAND ----------
 
-# Get parameters
-dbutils.widgets.text("customer_schema", "carlsberg", "Customer Schema")
-dbutils.widgets.text("postgres_host", "vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com", "PostgreSQL Host")
-dbutils.widgets.text("postgres_port", "54323", "PostgreSQL Port")
-dbutils.widgets.text("postgres_db", "postgres", "PostgreSQL Database")
-dbutils.widgets.text("db_schema", "carlsberg", "Database customer schema")
-dbutils.widgets.text("postgres_user", "postgres", "PostgreSQL User")
-dbutils.widgets.text("postgres_password", "vCo8trJkeg57Vp53", "PostgreSQL Password")
+# Get the JSON input from for_each_task
+dbutils.widgets.text("input", "")
+input_json = dbutils.widgets.get("input")
 
-customer_schema = dbutils.widgets.get("customer_schema")
-postgres_host = dbutils.widgets.get("postgres_host")
-postgres_port = dbutils.widgets.get("postgres_port")
-postgres_db = dbutils.widgets.get("postgres_db")
-postgres_user = dbutils.widgets.get("postgres_user")
-postgres_password = dbutils.widgets.get("postgres_password")
+print(f"Raw input: {input_json}")
 
-print(f"Processing customer: {customer_schema}")
+# Parse the JSON to extract customer_schema
+try:
+    input_data = json.loads(input_json)
+    customer_schema = input_data["customer_schema"]
+    postgres_host = input_data["postgres_host"]
+    postgres_port = int(input_data["postgres_port"])
+    postgres_db = input_data["postgres_db"]
+    postgres_user = input_data["postgres_user"]
+    postgres_password = input_data["postgres_password"]
+    print(f"Processing customer: {customer_schema}")
+except Exception as e:
+    print(f"Error parsing JSON: {e}")
+    customer_schema = "unknown"
 
 # COMMAND ----------
 

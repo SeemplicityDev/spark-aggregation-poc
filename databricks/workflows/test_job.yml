@@ -1,0 +1,45 @@
+name: Customer Aggregation Job
+description: Process customers in parallel
+
+email_notifications:
+  on_success:
+    - eran@seemplicity.io
+  on_failure:
+    - eran@seemplicity.io
+
+timeout_seconds: 14400
+max_concurrent_runs: 1
+
+tasks:
+  - task_key: process_customers_parallel
+    for_each_task:
+      inputs: '["carlsberg", "unilever"]'
+      concurrency: 10
+      task:
+        task_key: process_single_customer
+        notebook_task:
+          notebook_path: /Workspace/Users/eran@seemplicity.io/test_print_customer
+          base_parameters:
+            customer_schema: "{{item}}"
+          source: WORKSPACE
+        job_cluster_key: main_cluster
+        timeout_seconds: 7200
+
+job_clusters:
+  - job_cluster_key: main_cluster
+    new_cluster:
+      spark_version: 13.3.x-scala2.12
+      node_type_id: i3.xlarge
+      autoscale:
+        min_workers: 2
+        max_workers: 10
+      aws_attributes:
+        availability: SPOT_WITH_FALLBACK
+        zone_id: auto
+
+tags:
+  environment: production
+  project: spark-aggregation-poc
+
+queue:
+  enabled: true

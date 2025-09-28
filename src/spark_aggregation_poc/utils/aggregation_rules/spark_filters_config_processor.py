@@ -4,8 +4,10 @@ from typing import Dict, Any, Optional
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 
+from spark_aggregation_poc.interfaces.interfaces import IFilterConfigParser
 
-class FiltersConfigProcessor:
+
+class FiltersConfigParser(IFilterConfigParser):
     """
     Processes filters_config to generate Spark-compatible filter conditions
     """
@@ -77,6 +79,8 @@ class FiltersConfigProcessor:
                     conditions.append(f"{field} = '{values}'")
 
         return " AND ".join(conditions) if conditions else None
+
+
 
     def _parse_filter_json(self, filter_obj: Dict[str, Any]) -> Optional[str]:
         """
@@ -187,21 +191,4 @@ class FiltersConfigProcessor:
 
         return None
 
-    def apply_filters_config_to_dataframe(self, df: DataFrame, filters_config: Dict[str, Any]) -> DataFrame:
-        """
-        Apply filters_config directly to DataFrame
 
-        Args:
-            df: Input DataFrame
-            filters_config: Filters configuration
-
-        Returns:
-            Filtered DataFrame
-        """
-        filter_condition = self.generate_filter_condition(filters_config)
-
-        if filter_condition:
-            print(f"Applying filters_config condition: {filter_condition}")
-            return df.filter(expr(filter_condition))
-
-        return df

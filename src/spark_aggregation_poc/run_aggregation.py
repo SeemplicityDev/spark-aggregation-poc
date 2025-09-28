@@ -18,9 +18,9 @@ def run_aggregation(spark: SparkSession, config: Config = None):
 
         from time import time
 
-        # start = time()
-        # read_service.read_findings_data(spark=spark)
-        # print(f"Read time: {time() - start:.2f} seconds")
+        start = time()
+        read_service.read_findings_data(spark=spark)
+        print(f"Read time: {time() - start:.2f} seconds")
 
         start = time()
         df_final_group_agg_columns, df_final_finding_group_association = aggregation_service.aggregate_findings(spark=spark)

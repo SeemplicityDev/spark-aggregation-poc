@@ -5,10 +5,11 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator
+from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator, IRuleLoader, IFilterConfigParser
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
-from spark_aggregation_poc.utils.aggregation_rules.spark_filters_config_processor import FiltersConfigProcessor
+from spark_aggregation_poc.utils.aggregation_rules.spark_filters_config_processor import FiltersConfigParser
 from spark_aggregation_poc.services.aggregation.column_aggregation_util import ColumnAggregationUtil
+from pyspark.sql.functions import expr
 
 
 # Usage Example
@@ -16,22 +17,27 @@ class AggregationService(IFindingsAggregator):
     """
     Your main aggregation service using engine rules
     """
+    _allow_init = False
 
-    def __init__(self, config: Config,  rule_loader: RuleLoader, filters_config_processor: FiltersConfigProcessor):
+    @classmethod
+    def create_aggregation_service(cls, config: Config, rule_loader: IRuleLoader, filters_config_parser: IFilterConfigParser):
+        cls._allow_init = True
+        result = AggregationService(config=config, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
+        cls._allow_init = False
+
+        return result
+
+
+    def __init__(self, config: Config, rule_loader: IRuleLoader, filters_config_parser: IFilterConfigParser):
         self.config = config
         self.rule_loader = rule_loader
-        self.filters_config_processor = filters_config_processor
+        self.filters_config_parser = filters_config_parser
+
 
     def aggregate_findings(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
-        if findings_df is None:
-            findings_df = self.create_base_df(spark)
-        # Load rules from database
-        rules_df = self.rule_loader.load_aggregation_rules(spark, customer_id)
-        print("loaded rules from DB")
-        rules_df.show()
-        spark_rules: list[SparkAggregationRule] = self.rule_loader.parse_rules_to_spark_format(rules_df)
-        # print(f"transformed rules to spark format:\n {json.dumps(spark_rules, indent=4, default=str)}")
+        findings_df = self.create_base_df(spark)
 
+        spark_rules: list[SparkAggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
         all_group_agg_columns: List[DataFrame] = []
@@ -42,7 +48,7 @@ class AggregationService(IFindingsAggregator):
             print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Order={rule.order}, Type={rule.rule_type} {start_time.strftime('%H:%M:%S')}")
 
             # Apply filters_config
-            filtered_df = self.filters_config_processor.apply_filters_config_to_dataframe(
+            filtered_df = self.apply_filters_config_to_dataframe(
                 findings_df,
                 rule.filters_config
             )
@@ -191,6 +197,7 @@ class AggregationService(IFindingsAggregator):
 
         return cleaned_columns
 
+
     def validate_and_clean_group_columns(self, df: DataFrame, group_columns: List[str]) -> List[str]:
         """
         Clean group columns and validate they exist in DataFrame
@@ -218,144 +225,6 @@ class AggregationService(IFindingsAggregator):
 
         return valid_columns
 
-    # def create_base_df(self, spark: SparkSession) -> DataFrame:
-    #     # After tables are saved to catalog, create a view from the raw join
-    #     print("Creating base findings view from catalog tables...")
-    #
-    #     # Create a temporary view using the raw_join_query1_unilever_bak.sql logic
-    #     if self.config.is_databricks:
-    #         sql_str = """
-    #                CREATE OR REPLACE TEMPORARY VIEW base_findings_view AS
-    #                SELECT
-    #                    findings.id as finding_id,
-    #                    findings.package_name as package_name,
-    #                    findings.main_resource_id,
-    #                    findings.aggregation_group_id,
-    #                    findings.source,
-    #                    findings.rule_family,
-    #                    findings.rule_id,
-    #                    finding_sla_rule_connections.finding_id as sla_connection_id,
-    #                    plain_resources.id as resource_id,
-    #                    plain_resources.cloud_account,
-    #                    plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
-    #                    plain_resources.r1_resource_type as resource_type,
-    #                    plain_resources.tags_values as tags_values,
-    #                    plain_resources.tags_key_values as tags_key_values,
-    #                    plain_resources.cloud_provider as cloud_provider,
-    #                    findings_scores.finding_id as score_finding_id,
-    #                    findings_scores.severity,
-    #                    user_status.id as user_status_id,
-    #                    user_status.actual_status_key,
-    #                    findings_additional_data.finding_id as additional_data_id,
-    #                    statuses.key as status_key,
-    #                    aggregation_groups.id as existing_group_id,
-    #                    aggregation_groups.main_finding_id as existing_main_finding_id,
-    #                    aggregation_groups.group_identifier as existing_group_identifier,
-    #                    aggregation_groups.is_locked,
-    #                    findings_info.id as findings_info_id,
-    #                    findings.finding_type_str as finding_type,
-    #                    findings.fix_subtype as fix_subtype,
-    #                    statuses.category as category,
-    #                    findings.fix_id as fix_id,
-    #                    findings_additional_data.cve[1] as cve,
-    #                    findings.fix_type as fix_type,
-    #                    selection_rules.scope_group as scope_group
-    #                FROM general_data.default.findings
-    #                LEFT OUTER JOIN general_data.default.finding_sla_rule_connections ON
-    #                     findings.id = finding_sla_rule_connections.finding_id
-    #                JOIN general_data.default.plain_resources ON
-    #                    findings.main_resource_id = plain_resources.id
-    #                JOIN general_data.default.findings_scores ON
-    #                    findings.id = findings_scores.finding_id
-    #                JOIN general_data.default.user_status ON
-    #                    user_status.id = findings.id
-    #                LEFT OUTER JOIN general_data.default.findings_additional_data ON
-    #                    findings.id = findings_additional_data.finding_id
-    #                JOIN general_data.default.statuses ON
-    #                    statuses.key = user_status.actual_status_key
-    #                LEFT OUTER JOIN general_data.default.aggregation_groups ON
-    #                    findings.aggregation_group_id = aggregation_groups.id
-    #                LEFT OUTER JOIN general_data.default.findings_info ON
-    #                    findings_info.id = findings.id
-    #                LEFT OUTER JOIN general_data.default.scoring_rules ON
-    #                     findings_scores.scoring_rule_id = scoring_rules.id
-    #                LEFT OUTER JOIN general_data.default.selection_rules ON
-    #                     scoring_rules.selection_rule_id = selection_rules.id
-    #                WHERE findings.package_name IS NOT NULL
-    #                AND (findings.id <> aggregation_groups.main_finding_id
-    #                OR findings.aggregation_group_id is null)
-    #                """
-    #     else:
-    #         # Local development - use temp view names with proper aliases
-    #         sql_str = self.create_temp_view_local_development()
-    #
-    #     spark.sql(sql_str)
-    #
-    #     # Now read the view as a DataFrame
-    #     df = spark.table("base_findings_view")
-    #     return df
-
-    # def create_temp_view_local_development(self):
-    #     return """
-    #                CREATE OR REPLACE TEMPORARY VIEW base_findings_view AS
-    #                SELECT
-    #                    f.id as finding_id,
-    #                    f.package_name as package_name,
-    #                    f.main_resource_id,
-    #                    f.aggregation_group_id,
-    #                    f.source,
-    #                    f.rule_family,
-    #                    f.rule_id,
-    #                    sla.finding_id as sla_connection_id,
-    #                    pr.id as resource_id,
-    #                    pr.cloud_account,
-    #                    pr.cloud_account_friendly_name as root_cloud_account_friendly_name,
-    #                    pr.r1_resource_type as resource_type,
-    #                    pr.tags_values as tags_values,
-    #                    pr.tags_key_values as tags_key_values,
-    #                    pr.cloud_provider as cloud_provider,
-    #                    fs.finding_id as score_finding_id,
-    #                    fs.severity,
-    #                    us.id as user_status_id,
-    #                    us.actual_status_key,
-    #                    fad.finding_id as additional_data_id,
-    #                    s.key as status_key,
-    #                    ag.id as existing_group_id,
-    #                    ag.main_finding_id as existing_main_finding_id,
-    #                    ag.group_identifier as existing_group_identifier,
-    #                    ag.is_locked,
-    #                    fi.id as findings_info_id,
-    #                    f.finding_type_str as finding_type,
-    #                    f.fix_subtype as fix_subtype,
-    #                    s.category as category,
-    #                    f.fix_id as fix_id,
-    #                    fad.cve[1] as cve,
-    #                    f.fix_type as fix_type,
-    #                    sr.scope_group as scope_group
-    #                FROM findings_temp f
-    #                LEFT OUTER JOIN finding_sla_rule_connections_temp sla ON
-    #                     f.id = sla.finding_id
-    #                JOIN plain_resources_temp pr ON
-    #                    f.main_resource_id = pr.id
-    #                JOIN findings_scores_temp fs ON
-    #                    f.id = fs.finding_id
-    #                JOIN user_status_temp us ON
-    #                    us.id = f.id
-    #                LEFT OUTER JOIN findings_additional_data_temp fad ON
-    #                    f.id = fad.finding_id
-    #                JOIN statuses_temp s ON
-    #                    s.key = us.actual_status_key
-    #                LEFT OUTER JOIN aggregation_groups_temp ag ON
-    #                    f.aggregation_group_id = ag.id
-    #                LEFT OUTER JOIN findings_info_temp fi ON
-    #                    fi.id = f.id
-    #                LEFT OUTER JOIN scoring_rules_temp scr ON
-    #                     fs.scoring_rule_id = scr.id
-    #                LEFT OUTER JOIN selection_rules_temp sr ON
-    #                     scr.selection_rule_id = sr.id
-    #                WHERE f.package_name IS NOT NULL
-    #                AND (f.id <> ag.main_finding_id OR f.aggregation_group_id is null)
-    #                """
 
     def create_base_df(self, spark: SparkSession) -> DataFrame:
         # After tables are saved to catalog, create a view from the raw join
@@ -433,4 +302,24 @@ class AggregationService(IFindingsAggregator):
 
         # Now read the view as a DataFrame
         df = spark.table("base_findings_view")
+        return df
+
+
+    def apply_filters_config_to_dataframe(self, df: DataFrame, filters_config: Dict[str, Any]) -> DataFrame:
+        """
+        Apply filters_config directly to DataFrame
+
+        Args:
+            df: Input DataFrame
+            filters_config: Filters configuration
+
+        Returns:
+            Filtered DataFrame
+        """
+        filter_condition = self.filters_config_parser.generate_filter_condition(filters_config)
+
+        if filter_condition:
+            print(f"Applying filters_config condition: {filter_condition}")
+            return df.filter(expr(filter_condition))
+
         return df

@@ -9,7 +9,15 @@ from spark_aggregation_poc.interfaces.interfaces import IFindingsReader
 
 
 class ReadService(IFindingsReader):
-   
+    _allow_init = False
+
+    @classmethod
+    def create_read_service(cls, config: Config):
+        cls._allow_init = True
+        result = ReadService(config)
+        cls._allow_init = False
+
+        return result
 
     def __init__(self, config: Config):
         self.postgres_properties = config.postgres_properties

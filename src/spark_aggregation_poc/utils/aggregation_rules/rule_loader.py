@@ -6,29 +6,26 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.interfaces.interfaces import IRuleLoader
+from spark_aggregation_poc.models.spark_aggregation_rules import SparkAggregationRule
 
 
-@dataclass
-class SparkAggregationRule:
-    """Spark-compatible aggregation rule extracted from engine DB"""
-    id: int
-    order: int
-    group_by: Optional[List[str]]
-    filters_config: Optional[Dict[str, Any]]
-    field_calculation: Dict[str, Any]
-    rule_type: str
+class RuleLoader(IRuleLoader):
+    _allow_init = False
 
+    @classmethod
+    def create_rule_loader(cls, config: Config):
+        cls._allow_init = True
+        result = RuleLoader(config)
+        cls._allow_init = False
 
-class RuleLoader:
-    """
-    Loads aggregation rules from engine's PostgreSQL using Spark JDBC
-    """
+        return result
 
     def __init__(self, config: Config):
         self.jdbc_url = config.postgres_url
         self.db_properties = config.postgres_properties
 
-    def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> DataFrame:
+    def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[SparkAggregationRule]:
         """
         Load aggregation rules from PostgreSQL using Spark JDBC
 
@@ -63,7 +60,13 @@ class RuleLoader:
         if customer_id:
             rules_df = rules_df.filter(col("customer_id") == customer_id)
 
-        return rules_df.orderBy("rule_order")
+        rules_df.orderBy("rule_order")
+
+        print("loaded rules from DB")
+        rules_df.show()
+
+        return self.parse_rules_to_spark_format(rules_df)
+
 
     def parse_rules_to_spark_format(self, rules_df: DataFrame) -> List[SparkAggregationRule]:
         """

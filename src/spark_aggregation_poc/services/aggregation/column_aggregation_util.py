@@ -1,10 +1,11 @@
-from typing import List, Dict, Any, Optional
-from pyspark.sql import DataFrame
+from typing import List
+
+from pyspark.sql import DataFrame, Column
 from pyspark.sql.functions import (
     col, when, coalesce, lit,
     collect_list, count,
     max as spark_max, min as spark_min,
-    first, bool_or, concat_ws
+    first, bool_or
 )
 
 
@@ -20,14 +21,14 @@ class ColumnAggregationUtil:
     DUMMY_OPEN_STATUS = -1
 
     @classmethod
-    def get_basic_aggregations(cls, df: DataFrame, rule_idx: int) -> List:
+    def get_basic_aggregations(cls, df: DataFrame, rule_idx: int) -> list[Column]:
         """
         Returns all aggregation expressions for the .agg() method
         Combines basic fields with engine-compatible calculated fields
         """
 
         # Basic aggregations (your original 4 lines)
-        basic_aggs = [
+        basic_aggs: list[Column] = [
             collect_list("finding_id").alias("finding_ids"),
             collect_list("cloud_account").alias("cloud_accounts"),
             count("finding_id").alias("count"),

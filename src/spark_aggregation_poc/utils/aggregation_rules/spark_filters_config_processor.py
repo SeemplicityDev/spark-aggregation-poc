@@ -1,9 +1,6 @@
 import json
 from typing import Dict, Any, Optional
 
-from pyspark.sql import DataFrame
-from pyspark.sql.functions import expr
-
 from spark_aggregation_poc.interfaces.interfaces import IFilterConfigParser
 
 
@@ -11,6 +8,15 @@ class FiltersConfigParser(IFilterConfigParser):
     """
     Processes filters_config to generate Spark-compatible filter conditions
     """
+    _allow_init = False
+
+    @classmethod
+    def create_filters_config_parser(cls):
+        cls._allow_init = True
+        result = FiltersConfigParser()
+        cls._allow_init = False
+
+        return result
 
     def generate_filter_condition(self, filters_config: Dict[str, Any]) -> Optional[str]:
         """

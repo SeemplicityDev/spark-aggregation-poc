@@ -1,15 +1,14 @@
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import SparkSession, DataFrame, Column
 from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
+from pyspark.sql.functions import expr
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator, IRuleLoader, IFilterConfigParser
-from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoader, SparkAggregationRule
-from spark_aggregation_poc.utils.aggregation_rules.spark_filters_config_processor import FiltersConfigParser
 from spark_aggregation_poc.services.aggregation.column_aggregation_util import ColumnAggregationUtil
-from pyspark.sql.functions import expr
+from spark_aggregation_poc.utils.aggregation_rules.rule_loader import SparkAggregationRule
 
 
 # Usage Example
@@ -71,7 +70,6 @@ class AggregationService(IFindingsAggregator):
                 if group_count > 0:
                     print(f"Rule {rule_idx + 1}: Created {group_count} groups")
 
-                    # 3. Add to results (no ID filtering)
                     all_group_agg_columns.append(df_group_agg_columns)
                     all_finding_group_association.append(df_finding_group_association)
 
@@ -81,6 +79,7 @@ class AggregationService(IFindingsAggregator):
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 
+        # Union all rules into single Dataframe (one for group_aggregation and one for association)
         df_final_group_agg_columns =  self.union_group_agg_columns(all_group_agg_columns, findings_df)
         df_final_finding_group_association = self.union_finding_group_association(all_finding_group_association, findings_df)
 
@@ -138,19 +137,7 @@ class AggregationService(IFindingsAggregator):
 
         print(f"Grouping by: {valid_columns}")
 
-        # # Group and aggregate using your EngineAggregationCalculator
-        # # (This would use the class we discussed earlier)
-        # return df.groupBy(*valid_columns).agg(
-        #     collect_list("finding_id").alias("finding_ids"),
-        #     collect_list("root_cloud_account").alias("cloud_accounts"),
-        #     count("finding_id").alias("count"),
-        #     lit(rule_idx).alias("rule_number")
-        # ).withColumn(
-        #     "group_id",
-        #     concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
-        # )
-
-        all_aggregations = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
+        all_aggregations: list[Column] = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
 
         df_group_agg_columns: DataFrame = df.groupBy(*valid_columns).agg(
             *all_aggregations

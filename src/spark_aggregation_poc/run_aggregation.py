@@ -1,12 +1,8 @@
-from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IFindingsReader, IFindingsAggregator, IAggregatedWriter
-from spark_aggregation_poc.services.read_service import ReadService
-from spark_aggregation_poc.services.write_service import WriteService
-from spark_aggregation_poc.factory.context import build_app_context, AppContext
-from spark_aggregation_poc.services.aggregation.aggregation_service import \
-    AggregationService
 from pyspark.sql import SparkSession
 
+from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.factory.context import build_app_context, AppContext
+from spark_aggregation_poc.interfaces.interfaces import IFindingsReader, IFindingsAggregator, IAggregatedWriter
 
 
 def run_aggregation(spark: SparkSession, config: Config = None):

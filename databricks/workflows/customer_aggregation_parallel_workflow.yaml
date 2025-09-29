@@ -18,7 +18,7 @@ resources:
               postgres_port: "54322"
               postgres_db: postgres
               postgres_user: postgres
-              postgres_password: T66AWCNJGW!!jqML
+              postgres_password: <password>
             source: WORKSPACE
           job_cluster_key: aggregation_cluster
           timeout_seconds: 7200
@@ -31,7 +31,7 @@ resources:
               postgres_port: "54323"
               postgres_db: postgres
               postgres_user: postgres
-              postgres_password: vCo8trJkeg57Vp53
+              postgres_password: <password>
             source: WORKSPACE
           job_cluster_key: aggregation_cluster
           timeout_seconds: 7200

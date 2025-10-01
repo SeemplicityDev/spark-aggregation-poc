@@ -21,8 +21,8 @@ class WriteService(IAggregatedWriter):
         self.postgres_url = config.postgres_url
 
 
-    def write_finding_group_aggregation(self, df: DataFrame):
-        df.write.jdbc(url=self.postgres_url, table="finding_group_aggregation", mode="overwrite", properties=self.postgres_properties)
+    def write_finding_group_rollup(self, df: DataFrame):
+        df.write.jdbc(url=self.postgres_url, table="finding_group_rollup", mode="overwrite", properties=self.postgres_properties)
 
     def write_finding_group_association(self, df: DataFrame):
         df.write.jdbc(url=self.postgres_url, table="finding_group_association", mode="overwrite", properties=self.postgres_properties)

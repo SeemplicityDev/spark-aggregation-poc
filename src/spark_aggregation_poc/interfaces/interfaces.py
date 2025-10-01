@@ -32,7 +32,7 @@ class IFindingsAggregator(ABC):
 class IAggregatedWriter(ABC):
 
     @abstractmethod
-    def write_finding_group_aggregation(self, df: DataFrame) -> None:
+    def write_finding_group_rollup(self, df: DataFrame) -> None:
         pass
 
     @abstractmethod

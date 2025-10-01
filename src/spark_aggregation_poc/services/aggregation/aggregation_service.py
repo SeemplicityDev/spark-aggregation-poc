@@ -39,7 +39,7 @@ class AggregationService(IFindingsAggregator):
         spark_rules: list[SparkAggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
-        all_group_agg_columns: List[DataFrame] = []
+        all_finding_group_rollup: List[DataFrame] = []
         all_finding_group_association: List[DataFrame] = []
 
         for rule_idx, rule in enumerate(spark_rules):
@@ -60,39 +60,38 @@ class AggregationService(IFindingsAggregator):
 
             if rule.group_by:
                 # Apply grouping and aggregation
-                df_group_agg_columns, df_finding_group_association = self.create_groups_with_filters_config(
+                df_finding_group_rollup, df_finding_group_association = self.create_groups(
                     filtered_df,
                     rule.group_by,
-                    rule_idx,
-                    rule.filters_config
+                    rule_idx
                 )
-                group_count = df_group_agg_columns.count()
+                group_count = df_finding_group_rollup.count()
                 if group_count > 0:
                     print(f"Rule {rule_idx + 1}: Created {group_count} groups")
 
-                    all_group_agg_columns.append(df_group_agg_columns)
+                    all_finding_group_rollup.append(df_finding_group_rollup)
                     all_finding_group_association.append(df_finding_group_association)
 
                     # Show sample
-                    df_group_agg_columns.show(3)
+                    df_finding_group_rollup.show(3)
                     df_finding_group_association.show(3)
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 
-        # Union all rules into single Dataframe (one for group_aggregation and one for association)
-        df_final_group_agg_columns =  self.union_group_agg_columns(all_group_agg_columns, findings_df)
+        # Union all rules into single Dataframe (one for rollup and one for association)
+        df_final_finding_group_rollup =  self.union_finding_group_rollup(all_finding_group_rollup, findings_df)
         df_final_finding_group_association = self.union_finding_group_association(all_finding_group_association, findings_df)
 
-        return df_final_group_agg_columns, df_final_finding_group_association
+        return df_final_finding_group_rollup, df_final_finding_group_association
 
 
-    def union_group_agg_columns(self, all_group_agg_columns, findings_df) -> DataFrame:
-        if all_group_agg_columns:
-            print(f"Combining results from {len(all_group_agg_columns)} rules")
+    def union_finding_group_rollup(self, all_finding_group_rollup, findings_df) -> DataFrame:
+        if all_finding_group_rollup:
+            print(f"Combining results from {len(all_finding_group_rollup)} rules")
 
             # Union all rule results
-            final_result = all_group_agg_columns[0]
-            for result in all_group_agg_columns[1:]:
+            final_result = all_finding_group_rollup[0]
+            for result in all_finding_group_rollup[1:]:
                 final_result = final_result.union(result)
 
             total_groups = final_result.count()
@@ -123,8 +122,7 @@ class AggregationService(IFindingsAggregator):
             return findings_df.limit(0)
 
 
-    def create_groups_with_filters_config(self, df: DataFrame, group_columns: List[str], rule_idx: int,
-                                          filters_config: Dict[str, Any]) -> tuple[DataFrame, DataFrame]:
+    def create_groups(self, df: DataFrame, group_columns: List[str], rule_idx: int) -> tuple[DataFrame, DataFrame]:
         """
         Your existing create_groups method enhanced with filters_config
         """
@@ -139,16 +137,16 @@ class AggregationService(IFindingsAggregator):
 
         all_aggregations: list[Column] = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
 
-        df_group_agg_columns: DataFrame = df.groupBy(*valid_columns).agg(
+        df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
             *all_aggregations
         ).withColumn(
             "group_id",
             concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
         )
 
-        df_finding_group_association: DataFrame = self.create_finding_group_association(df_group_agg_columns)
+        df_finding_group_association: DataFrame = self.create_finding_group_association(df_finding_group_rollup)
 
-        return df_group_agg_columns, df_finding_group_association
+        return df_finding_group_rollup, df_finding_group_association
 
 
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:

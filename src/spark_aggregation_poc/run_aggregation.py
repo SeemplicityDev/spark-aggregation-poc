@@ -14,21 +14,21 @@ def run_aggregation(spark: SparkSession, config: Config = None):
 
         from time import time
 
-        # start = time()
-        # read_service.read_findings_data(spark=spark)
-        # print(f"Read time: {time() - start:.2f} seconds")
+        start = time()
+        read_service.read_findings_data(spark=spark)
+        print(f"Read time: {time() - start:.2f} seconds")
 
         start = time()
-        df_final_group_agg_columns, df_final_finding_group_association = aggregation_service.aggregate_findings(spark=spark)
+        df_final_finding_group_rollup, df_final_finding_group_association = aggregation_service.aggregate_findings(spark=spark)
         print("\n=== Final Group Aggregation Columns ===")
-        df_final_group_agg_columns.show()
+        df_final_finding_group_rollup.show()
         print("\n=== Final Finding Group Association ===")
         df_final_finding_group_association.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
         # print("\n=== Writing Aggregation table and Association table ===")
         # start = time()
-        # write_service.write_finding_group_aggregation(df_final_group_agg_columns)
+        # write_service.write_finding_group_rollup(df_final_finding_group_rollup)
         # write_service.write_finding_group_association(df_final_finding_group_association)
         # print(f"Write time: {time() - start:.2f} seconds")
 

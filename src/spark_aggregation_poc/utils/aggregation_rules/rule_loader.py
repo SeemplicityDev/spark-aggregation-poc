@@ -24,19 +24,16 @@ class RuleLoader(IRuleLoader):
     def __init__(self, config: Config):
         self.jdbc_url = config.postgres_url
         self.db_properties = config.postgres_properties
+        self.config = config
 
     def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[SparkAggregationRule]:
-        """
-        Load aggregation rules from PostgreSQL using Spark JDBC
-
-        Args:
-            customer_id: Optional customer filter
-
-        Returns:
-            DataFrame with aggregation rules
-        """
+        # Use different table references based on environment
+        if self.config.is_databricks:
+            table_prefix = "general_data.default"
+        else:
+            table_prefix = "spark_catalog.default"  # Use spark_catalog for local
         # Base query to get aggregation rules
-        query = """
+        query = f"""
         (
             SELECT 
                 id,
@@ -44,7 +41,7 @@ class RuleLoader(IRuleLoader):
                 aggregation_query,
                 "type" as rule_type,	
                 field_calculation
-            FROM aggregation_rules
+            FROM {table_prefix}.aggregation_rules
             WHERE "type" = 'AGG'
         ) as aggregation_rules_query
         """

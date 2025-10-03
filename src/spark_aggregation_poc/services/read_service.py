@@ -44,8 +44,7 @@ class ReadService(IFindingsReader):
             print(f"Using max_id_override: {max_id_override:,}")
 
         # Define table categories
-        # large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
-        large_tables = ["findings", "findings_scores", "user_status", "findings_additional_data", "plain_resources"]
+        large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
         medium_tables = ["finding_sla_rule_connections"]
         small_tables = ["statuses", "aggregation_groups", "aggregation_rules", "aggregation_rules_findings_excluder", "scoring_rules", "selection_rules"]
 

@@ -63,7 +63,7 @@ class RuleLoader(IRuleLoader):
         rules_df.orderBy("rule_order")
 
         print("loaded rules from DB")
-        rules_df.show(20, False)
+        rules_df.show()
 
         return self.create_aggregation_rules(rules_df)
 

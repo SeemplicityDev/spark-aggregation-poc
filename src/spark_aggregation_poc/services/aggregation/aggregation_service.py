@@ -249,7 +249,6 @@ class AggregationService(IFindingsAggregator):
                    aggregation_groups.main_finding_id as existing_main_finding_id,
                    aggregation_groups.group_identifier as existing_group_identifier,
                    aggregation_groups.is_locked,
-                   # findings_info.id as findings_info_id,
                    findings.finding_type_str as finding_type,
                    findings.fix_subtype as fix_subtype,
                    statuses.category as category,
@@ -272,8 +271,6 @@ class AggregationService(IFindingsAggregator):
                    statuses.key = user_status.actual_status_key
                LEFT OUTER JOIN {table_prefix}.aggregation_groups ON
                    findings.aggregation_group_id = aggregation_groups.id
-               # LEFT OUTER JOIN {table_prefix}.findings_info ON
-               #     findings_info.id = findings.id
                LEFT OUTER JOIN {table_prefix}.scoring_rules ON
                     findings_scores.scoring_rule_id = scoring_rules.id
                LEFT OUTER JOIN {table_prefix}.selection_rules ON

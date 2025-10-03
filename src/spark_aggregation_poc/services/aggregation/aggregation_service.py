@@ -7,7 +7,7 @@ from pyspark.sql.functions import expr
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator, IRuleLoader, IFilterConfigParser
-from spark_aggregation_poc.services.aggregation.column_aggregation_util import ColumnAggregationUtil
+from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import SparkAggregationRule
 
 
@@ -135,7 +135,7 @@ class AggregationService(IFindingsAggregator):
 
         print(f"Grouping by: {valid_columns}")
 
-        all_aggregations: list[Column] = ColumnAggregationUtil.get_basic_aggregations(df, rule_idx)
+        all_aggregations: list[Column] = RollupUtil.get_basic_rollup(df, rule_idx)
 
         df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
             *all_aggregations

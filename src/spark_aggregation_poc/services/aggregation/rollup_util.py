@@ -9,7 +9,7 @@ from pyspark.sql.functions import (
 )
 
 
-class ColumnAggregationUtil:
+class RollupUtil:
     """
     Separate class that handles all the complex engine-compatible aggregations
     """
@@ -21,7 +21,7 @@ class ColumnAggregationUtil:
     DUMMY_OPEN_STATUS = -1
 
     @classmethod
-    def get_basic_aggregations(cls, df: DataFrame, rule_idx: int) -> list[Column]:
+    def get_basic_rollup(cls, df: DataFrame, rule_idx: int) -> list[Column]:
         """
         Returns all aggregation expressions for the .agg() method
         Combines basic fields with engine-compatible calculated fields
@@ -38,7 +38,7 @@ class ColumnAggregationUtil:
         return basic_aggs
 
     @classmethod
-    def get_all_aggregations(cls, df: DataFrame, rule_idx: int) -> List:
+    def get_all_rollups(cls, df: DataFrame, rule_idx: int) -> List:
         """
         Returns all aggregation expressions for the .agg() method
         Returns calculated fields as done in engine repo

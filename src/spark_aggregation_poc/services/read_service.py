@@ -27,7 +27,7 @@ class ReadService(IFindingsReader):
     def read_findings_data(self, spark: SparkSession,
                            large_table_batch_size: int = 3200000,
                            connections_per_batch: int = 32,
-                           max_id_override: int = 20000000) -> None:
+                           max_id_override: int = None) -> None:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 

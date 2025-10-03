@@ -21,12 +21,11 @@ print(f"Raw input: {input_json}")
 try:
     input_data = json.loads(input_json)
     customer_schema = input_data["customer_schema"]
-    postgres_host = input_data["postgres_host"]
     postgres_port = int(input_data["postgres_port"])
     postgres_db = input_data["postgres_db"]
-    postgres_user = input_data["postgres_user"]
-    postgres_password = input_data["postgres_password"]
-    print(f"Processing customer: {customer_schema}")
+    postgres_host = dbutils.secrets.get("my-scope", f"{customer_schema}-postgres-host")
+    postgres_user = dbutils.secrets.get("my-scope", f"{customer_schema}-postgres-user")
+    postgres_password = dbutils.secrets.get("my-scope", f"{customer_schema}-postgres-password")
 except Exception as e:
     print(f"Error parsing JSON: {e}")
     customer_schema = "unknown"

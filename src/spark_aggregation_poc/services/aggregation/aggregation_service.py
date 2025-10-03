@@ -92,7 +92,7 @@ class AggregationService(IFindingsAggregator):
             # Union all rule results
             final_result = all_finding_group_rollup[0]
             for result in all_finding_group_rollup[1:]:
-                final_result = final_result.unionAll(result, True)
+                final_result = final_result.unionByName(result, True)
 
             total_groups = final_result.count()
             total_findings = final_result.agg({"count": "sum"}).collect()[0][0]

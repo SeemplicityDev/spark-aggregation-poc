@@ -39,6 +39,11 @@ class FiltersConfigParser(IFilterConfigParser):
         conditions = []
 
         for field, values in filters_config.items():
+            # Skip 'scope_group' field - disregard it completely
+            if field == "scope_group":
+                print(f"Skipping 'scope_group' field in filters_config")
+                continue
+
             # Handle scopesjson
             if field == "scopesjson":
                 if not values or (isinstance(values, dict) and not values) or (isinstance(values, list) and not values):

@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 
 
 @dataclass
-class SparkAggregationRule:
+class AggregationRule:
     """Spark-compatible aggregation rule extracted from engine DB"""
     id: int
     order: int

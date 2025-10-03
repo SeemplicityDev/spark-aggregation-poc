@@ -8,7 +8,7 @@ from pyspark.sql.functions import expr
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator, IRuleLoader, IFilterConfigParser
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
-from spark_aggregation_poc.utils.aggregation_rules.rule_loader import SparkAggregationRule
+from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
 
 # Usage Example
@@ -36,7 +36,7 @@ class AggregationService(IFindingsAggregator):
     def aggregate_findings(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
         findings_df = self.create_base_df(spark)
 
-        spark_rules: list[SparkAggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
+        spark_rules: list[AggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print(f"Loaded {len(spark_rules)} aggregation rules")
 
         all_finding_group_rollup: List[DataFrame] = []

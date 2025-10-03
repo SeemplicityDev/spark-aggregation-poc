@@ -7,7 +7,7 @@ from pyspark.sql.functions import col
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import IRuleLoader
-from spark_aggregation_poc.models.spark_aggregation_rules import SparkAggregationRule
+from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
 class RuleLoader(IRuleLoader):
@@ -25,7 +25,7 @@ class RuleLoader(IRuleLoader):
         self.jdbc_url = config.postgres_url
         self.db_properties = config.postgres_properties
 
-    def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[SparkAggregationRule]:
+    def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[AggregationRule]:
         """
         Load aggregation rules from PostgreSQL using Spark JDBC
 
@@ -65,10 +65,10 @@ class RuleLoader(IRuleLoader):
         print("loaded rules from DB")
         rules_df.show(20, False)
 
-        return self.parse_rules_to_spark_format(rules_df)
+        return self.create_aggregation_rules(rules_df)
 
 
-    def parse_rules_to_spark_format(self, rules_df: DataFrame) -> List[SparkAggregationRule]:
+    def create_aggregation_rules(self, rules_df: DataFrame) -> List[AggregationRule]:
         """
         Parse the loaded DataFrame into SparkAggregationRule objects
 
@@ -91,7 +91,7 @@ class RuleLoader(IRuleLoader):
             filters_config = aggregation_query.get("filters_config", {})
             field_calculation = aggregation_query.get("field_calculation", {})
 
-            spark_rule = SparkAggregationRule(
+            spark_rule = AggregationRule(
                 id=row.id,
                 order=row.rule_order,
                 group_by=group_by,

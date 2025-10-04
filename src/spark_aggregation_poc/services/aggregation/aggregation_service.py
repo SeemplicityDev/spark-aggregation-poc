@@ -96,7 +96,7 @@ class AggregationService(FindingsAggregatorInterface):
                 final_result = final_result.unionByName(result,True)
 
             total_groups = final_result.count()
-            total_findings = final_result.agg({"count": "sum"}).collect()[0][0]
+            total_findings = final_result.agg({"findings_count": "sum"}).collect()[0][0]
             print(f"✓ Final result: {total_groups:,} groups containing {total_findings:,} findings")
 
             return final_result

@@ -2,11 +2,11 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from pyspark.sql import SparkSession, DataFrame, Column
-from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
-from pyspark.sql.functions import expr
+from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, coalesce, lit
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, FilterConfigParserInterface
+from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
+    FilterConfigParserInterface
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
@@ -153,7 +153,7 @@ class AggregationService(FindingsAggregatorInterface):
                 *all_rollups
             ).withColumn(
                 "group_id",
-                concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
+                concat_ws("_", *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns])
             )
 
             print(f"✅ Rule {rule_idx} - Successfully created rollup with schema: {df_finding_group_rollup.columns}")
@@ -171,7 +171,7 @@ class AggregationService(FindingsAggregatorInterface):
 
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:
         result: DataFrame = df.select(
-            col("group_id").alias("group_id"),
+            spark_col("group_id").alias("group_id"),
             explode("finding_ids").alias("finding_id")
         )
 

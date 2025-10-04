@@ -122,28 +122,47 @@ class AggregationService(FindingsAggregatorInterface):
             print("❌ No finding group association created by any rule")
             return findings_df.limit(0)
 
-
     def create_groups(self, df: DataFrame, group_columns: List[str], rule_idx: int) -> tuple[DataFrame, DataFrame]:
         """
-        Your existing create_groups method enhanced with filters_config
+        Your existing create_groups method enhanced with debugging
         """
+        print(f"🔍 Rule {rule_idx} - Input DataFrame columns: {df.columns}")
+        print(f"🔍 Rule {rule_idx} - Requested group_columns: {group_columns}")
+
         # Clean and validate group columns
         valid_columns = self.validate_and_clean_group_columns(df, group_columns)
 
         if not valid_columns:
             print(f"No valid group columns: {group_columns}")
-            return df.limit(0)
+            return df.limit(0), df.limit(0)
 
-        print(f"Grouping by: {valid_columns}")
+        print(f"🔍 Rule {rule_idx} - Valid columns after validation: {valid_columns}")
+
+        # Check if all valid_columns exist in the DataFrame
+        missing_columns = set(valid_columns) - set(df.columns)
+        if missing_columns:
+            print(f"❌ Rule {rule_idx} - Missing columns in DataFrame: {missing_columns}")
+            print(f"Available columns: {df.columns}")
+            raise ValueError(f"Missing columns: {missing_columns}")
 
         all_rollups: list[Column] = RollupUtil.get_basic_rollup(df, rule_idx)
+        print(f"🔍 Rule {rule_idx} - Rollup columns: {[str(col) for col in all_rollups]}")
 
-        df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
-            *all_rollups
-        ).withColumn(
-            "group_id",
-            concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
-        )
+        try:
+            df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
+                *all_rollups
+            ).withColumn(
+                "group_id",
+                concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])
+            )
+
+            print(f"✅ Rule {rule_idx} - Successfully created rollup with schema: {df_finding_group_rollup.columns}")
+
+        except Exception as e:
+            print(f"❌ Rule {rule_idx} - Error in groupBy/agg: {e}")
+            print(f"DataFrame schema: {df.schema}")
+            print(f"Valid columns: {valid_columns}")
+            raise
 
         df_finding_group_association: DataFrame = self.create_finding_group_association(df_finding_group_rollup)
 

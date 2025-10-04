@@ -1,14 +1,14 @@
 from pyspark.sql import DataFrame
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IAggregatedWriter
+from spark_aggregation_poc.interfaces.interfaces import AggregatedWriterInterface
 
 
-class WriteService(IAggregatedWriter):
+class WriteService(AggregatedWriterInterface):
     _allow_init = False
 
     @classmethod
-    def create_write_service(cls, config: Config) -> IAggregatedWriter:
+    def create_write_service(cls, config: Config) -> AggregatedWriterInterface:
         cls._allow_init = True
         result = WriteService(config)
         cls._allow_init = False

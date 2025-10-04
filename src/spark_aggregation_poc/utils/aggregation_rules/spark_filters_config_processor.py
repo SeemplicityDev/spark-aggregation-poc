@@ -1,10 +1,10 @@
 import json
 from typing import Dict, Any, Optional
 
-from spark_aggregation_poc.interfaces.interfaces import IFilterConfigParser
+from spark_aggregation_poc.interfaces.interfaces import FilterConfigParserInterface
 
 
-class FiltersConfigParser(IFilterConfigParser):
+class FiltersConfigParser(FilterConfigParserInterface):
     """
     Processes filters_config to generate Spark-compatible filter conditions
     """

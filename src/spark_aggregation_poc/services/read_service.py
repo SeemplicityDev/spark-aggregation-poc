@@ -5,10 +5,10 @@ from typing import List, Tuple
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IFindingsReader
+from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface
 
 
-class ReadService(IFindingsReader):
+class ReadService(FindingsReaderInterface):
     _allow_init = False
 
     @classmethod

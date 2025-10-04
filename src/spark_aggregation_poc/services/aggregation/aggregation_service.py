@@ -6,20 +6,20 @@ from pyspark.sql.functions import col, lit, concat_ws, coalesce, explode
 from pyspark.sql.functions import expr
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IFindingsAggregator, IRuleLoader, IFilterConfigParser
+from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, FilterConfigParserInterface
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
 
 # Usage Example
-class AggregationService(IFindingsAggregator):
+class AggregationService(FindingsAggregatorInterface):
     """
     Your main aggregation service using engine rules
     """
     _allow_init = False
 
     @classmethod
-    def create_aggregation_service(cls, config: Config, rule_loader: IRuleLoader, filters_config_parser: IFilterConfigParser):
+    def create_aggregation_service(cls, config: Config, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         cls._allow_init = True
         result = AggregationService(config=config, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
         cls._allow_init = False
@@ -27,7 +27,7 @@ class AggregationService(IFindingsAggregator):
         return result
 
 
-    def __init__(self, config: Config, rule_loader: IRuleLoader, filters_config_parser: IFilterConfigParser):
+    def __init__(self, config: Config, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         self.config = config
         self.rule_loader = rule_loader
         self.filters_config_parser = filters_config_parser
@@ -85,29 +85,15 @@ class AggregationService(IFindingsAggregator):
         return df_final_finding_group_rollup, df_final_finding_group_association
 
 
-    def union_finding_group_rollup(self, all_finding_group_rollup, findings_df) -> DataFrame:
+    def union_finding_group_rollup(self, all_finding_group_rollup: List[DataFrame], findings_df: DataFrame) -> DataFrame:
         if all_finding_group_rollup:
-            print(f"Combining results from {len(all_finding_group_rollup)} rules")
-
-            # Debug: Check schemas before union
-            for i, result in enumerate(all_finding_group_rollup):
-                print(f"Rule {i} schema: {result.columns}")
-                print(f"Rule {i} column count: {len(result.columns)}")
-
-            # Check if all DataFrames have the same schema
-            first_schema = all_finding_group_rollup[0].columns
-            for i, result in enumerate(all_finding_group_rollup[1:], 1):
-                if result.columns != first_schema:
-                    print(f"❌ Schema mismatch between rule 0 and rule {i}")
-                    print(f"Rule 0 columns: {first_schema}")
-                    print(f"Rule {i} columns: {result.columns}")
-                    print(f"Missing in rule {i}: {set(first_schema) - set(result.columns)}")
-                    print(f"Extra in rule {i}: {set(result.columns) - set(first_schema)}")
+            print(f"Combining rollup results from {len(all_finding_group_rollup)} rules")
 
             # Union all rule results
             final_result = all_finding_group_rollup[0]
             for result in all_finding_group_rollup[1:]:
-                final_result = final_result.unionByName(result, True)
+                #  allowMissingColumns=True because rollup df schema includes group by columns (which differ from rule to rule)
+                final_result = final_result.unionByName(result,True)
 
             total_groups = final_result.count()
             total_findings = final_result.agg({"count": "sum"}).collect()[0][0]
@@ -121,7 +107,7 @@ class AggregationService(IFindingsAggregator):
 
     def union_finding_group_association(self, all_finding_group_association: List[DataFrame], findings_df: DataFrame) -> DataFrame:
         if all_finding_group_association:
-            print(f"Combining results from {len(all_finding_group_association)} rules")
+            print(f"Combining association results from {len(all_finding_group_association)} rules")
 
             # Union all rule results
             final_result = all_finding_group_association[0]
@@ -150,10 +136,10 @@ class AggregationService(IFindingsAggregator):
 
         print(f"Grouping by: {valid_columns}")
 
-        all_aggregations: list[Column] = RollupUtil.get_basic_rollup(df, rule_idx)
+        all_rollups: list[Column] = RollupUtil.get_basic_rollup(df, rule_idx)
 
         df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
-            *all_aggregations
+            *all_rollups
         ).withColumn(
             "group_id",
             concat_ws("_", *[coalesce(col(column).cast("string"), lit("null")) for column in valid_columns])

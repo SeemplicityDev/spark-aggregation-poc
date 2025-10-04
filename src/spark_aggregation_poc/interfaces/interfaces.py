@@ -6,7 +6,7 @@ from pyspark.sql import SparkSession, DataFrame
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
-class IFindingsReader(ABC):
+class FindingsReaderInterface(ABC):
 
     @abstractmethod
     def read_findings_data(self, spark: SparkSession,
@@ -18,7 +18,7 @@ class IFindingsReader(ABC):
 
 
 
-class IFindingsAggregator(ABC):
+class FindingsAggregatorInterface(ABC):
 
     @abstractmethod
     def aggregate_findings(self, spark:SparkSession,
@@ -29,7 +29,7 @@ class IFindingsAggregator(ABC):
 
 
 
-class IAggregatedWriter(ABC):
+class AggregatedWriterInterface(ABC):
 
     @abstractmethod
     def write_finding_group_rollup(self, df: DataFrame) -> None:
@@ -41,7 +41,7 @@ class IAggregatedWriter(ABC):
 
 
 
-class IRuleLoader(ABC):
+class RuleLoaderInterface(ABC):
 
     @abstractmethod
     def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[AggregationRule]:
@@ -49,7 +49,7 @@ class IRuleLoader(ABC):
 
 
 
-class IFilterConfigParser(ABC):
+class FilterConfigParserInterface(ABC):
 
     @abstractmethod
     def generate_filter_condition(self, filters_config: Dict[str, Any]) -> Optional[str]:

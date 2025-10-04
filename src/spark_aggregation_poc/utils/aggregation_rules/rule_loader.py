@@ -6,17 +6,17 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import IRuleLoader
+from spark_aggregation_poc.interfaces.interfaces import RuleLoaderInterface
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
-class RuleLoader(IRuleLoader):
+class RuleLoaderService(RuleLoaderInterface):
     _allow_init = False
 
     @classmethod
     def create_rule_loader(cls, config: Config):
         cls._allow_init = True
-        result = RuleLoader(config)
+        result = RuleLoaderService(config)
         cls._allow_init = False
 
         return result

@@ -28,14 +28,14 @@ class RollupUtil:
         """
 
         # Basic aggregations (your original 4 lines)
-        basic_aggs: list[Column] = [
+        basic_rollups: list[Column] = [
             collect_list("finding_id").alias("finding_ids"),
             collect_list("cloud_account").alias("cloud_accounts"),
-            count("finding_id").alias("count"),
+            count("finding_id").alias("findings_count"),
             lit(rule_idx).alias("rule_number")
         ]
 
-        return basic_aggs
+        return basic_rollups
 
     @classmethod
     def get_all_rollups(cls, df: DataFrame, rule_idx: int) -> List:
@@ -45,7 +45,7 @@ class RollupUtil:
         """
 
         # Engine-compatible calculated fields
-        engine_aggs = [
+        engine_rollups = [
             # ValueBySortedField with OPEN filter and mode() default
             coalesce(
                 cls._first_by_priority("category", "status_category", cls.STATUS_OPEN),
@@ -242,7 +242,7 @@ class RollupUtil:
         conditional_aggs = cls._conditional_aggregations(df)
 
         # Return combined list
-        return engine_aggs + conditional_aggs
+        return engine_rollups + conditional_aggs
 
     @classmethod
     def _first_by_priority(cls, field_name: str, filter_col: str, filter_value: str):

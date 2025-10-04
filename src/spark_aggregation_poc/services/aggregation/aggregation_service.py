@@ -89,6 +89,21 @@ class AggregationService(IFindingsAggregator):
         if all_finding_group_rollup:
             print(f"Combining results from {len(all_finding_group_rollup)} rules")
 
+            # Debug: Check schemas before union
+            for i, result in enumerate(all_finding_group_rollup):
+                print(f"Rule {i} schema: {result.columns}")
+                print(f"Rule {i} column count: {len(result.columns)}")
+
+            # Check if all DataFrames have the same schema
+            first_schema = all_finding_group_rollup[0].columns
+            for i, result in enumerate(all_finding_group_rollup[1:], 1):
+                if result.columns != first_schema:
+                    print(f"❌ Schema mismatch between rule 0 and rule {i}")
+                    print(f"Rule 0 columns: {first_schema}")
+                    print(f"Rule {i} columns: {result.columns}")
+                    print(f"Missing in rule {i}: {set(first_schema) - set(result.columns)}")
+                    print(f"Extra in rule {i}: {set(result.columns) - set(first_schema)}")
+
             # Union all rule results
             final_result = all_finding_group_rollup[0]
             for result in all_finding_group_rollup[1:]:

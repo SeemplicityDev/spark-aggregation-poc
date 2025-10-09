@@ -22,7 +22,6 @@ class FindingsAggregatorInterface(ABC):
 
     @abstractmethod
     def aggregate_findings(self, spark:SparkSession,
-                  findings_df: DataFrame = None,
                   customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
         """Aggregate findings data and return aggregated data (association-table, groups-table)"""
         pass

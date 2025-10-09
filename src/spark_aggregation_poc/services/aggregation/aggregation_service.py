@@ -34,7 +34,7 @@ class AggregationService(FindingsAggregatorInterface):
         self.filters_config_parser = filters_config_parser
 
 
-    def aggregate_findings(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
+    def aggregate_findings(self, spark:SparkSession, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
         findings_df = self.catalog_repository.read_base_findings(spark)
 
         spark_rules: list[AggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)

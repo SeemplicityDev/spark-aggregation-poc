@@ -22,4 +22,3 @@ class ConfigLoader:
         with open(config_path) as f:
             raw = yaml.safe_load(f)
             return Config(postgres_url=raw["postgres"]["postgres_url"], postgres_properties=raw["postgres"]["postgres_properties"])
-            # return AppConfig(postgres=PostgresConfig(**raw["postgres"]))

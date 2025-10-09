@@ -29,6 +29,7 @@ def main():
     config: Config = ConfigLoader.load_config()
     config.catalog_table_prefix = "spark_catalog.default."
     run_aggregation(spark, config)
+    spark.stop()
 
 
 

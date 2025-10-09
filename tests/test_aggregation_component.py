@@ -82,93 +82,6 @@ class TestAggregationComponent:
         )
 
 
-    def test_aggregation_service_with_mock_loader(self, spark, test_config):
-        """Test AggregationService with mocked rule loader"""
-
-        print("=== Registering Existing Delta Tables ===")
-
-        warehouse_path = self.get_local_warehouse_path()
-
-        # List of tables that create_base_df expects
-        required_tables = [
-            "findings", "plain_resources", "finding_sla_rule_connections",
-            "findings_scores", "user_status", "findings_additional_data",
-            "statuses", "aggregation_groups", "findings_info",
-            "scoring_rules", "selection_rules"
-        ]
-
-        # Register each existing Delta table in Spark's catalog
-        for table_name in required_tables:
-            table_path = f"{warehouse_path}/{table_name}"
-            catalog_table = f"spark_catalog.default.{table_name}"
-
-            try:
-                # This is the same as what WriteUtil.save_to_catalog() does,
-                # but for existing tables instead of new DataFrames
-                spark.sql(f"""
-                        CREATE OR REPLACE TABLE {catalog_table}
-                        USING DELTA
-                        LOCATION '{table_path}'
-                    """)
-
-                # Verify the table is accessible
-                df = spark.table(catalog_table)
-                count = df.count()
-                print(f"✅ Registered {table_name}: {count:,} rows")
-
-            except Exception as e:
-                print(f"❌ Failed to register {table_name}: {e}")
-                # Continue with other tables
-
-        print("=== Running Aggregation Test ===")
-
-
-        # Create mock rule loader
-        mock_rule_loader = Mock()
-        mock_rule_loader.load_aggregation_rules.return_value = [
-            AggregationRule(
-                id=1,
-                order = 1,
-                group_by=["package_name", "cloud_account"],
-                filters_config ={"filtersjson": {
-                    "field": "status",
-                    "condition": "in",
-                    "value": ["OPEN", "FIXED"]
-                }},
-                field_calculation={"status": ["OPEN"]},  # Mock filters
-                rule_type = "AGG"
-            )
-        ]
-
-        # Create mock filter parser
-        mock_filter_parser = Mock()
-        mock_filter_parser.generate_filter_condition.return_value = "status = 'OPEN'"
-
-        # Create aggregation service with mocked dependencies
-        aggregation_service = AggregationService.create_aggregation_service(
-            config=test_config,
-            rule_loader=mock_rule_loader,
-            filters_config_parser=mock_filter_parser
-        )
-
-        # # Setup test data
-        # test_data = [
-        #     (1, "package1", "account1", "OPEN"),
-        #     (2, "package1", "account1", "FIXED"),
-        #     (3, "package2", "account2", "OPEN")
-        # ]
-        # df = spark.createDataFrame(test_data, ["finding_id", "package_name", "cloud_account", "status"])
-
-        # Run aggregation
-        result_agg, result_assoc = aggregation_service.aggregate_findings(spark)
-
-        # Verify mocks were called
-        mock_rule_loader.load_aggregation_rules.assert_called_once()
-        mock_filter_parser.generate_filter_condition.assert_called()
-
-        # Verify results
-        assert result_agg.count() > 0
-        assert result_assoc.count() > 0
 
     def create_temp_views_from_local_catalog(self, spark):
         """
@@ -268,6 +181,7 @@ class TestAggregationComponent:
             print("✅ All required tables for aggregation are available")
 
         return created_views, failed_views
+
 
     def test_aggregation_service_with_temp_views(self, spark, test_config):
         """Test AggregationService using temp views created from local catalog data"""

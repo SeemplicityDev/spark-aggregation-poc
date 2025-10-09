@@ -35,8 +35,3 @@ def run_aggregation(spark: SparkSession, config: Config = None):
 
     except Exception as e:
         print(f"Error aggregating! {e}")
-        # TODO: add rollback functionality (first write to staging_table and validate the expected count (inside driver))
-    finally:
-        # Stop Spark
-        if(config and config.is_databricks is False):
-            spark.stop()

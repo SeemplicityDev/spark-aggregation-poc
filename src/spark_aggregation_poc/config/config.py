@@ -9,7 +9,6 @@ import yaml
 class Config:
     postgres_url: str
     postgres_properties: dict
-    is_databricks: bool = False
     catalog_table_prefix: str = None
     customer: str = None
 

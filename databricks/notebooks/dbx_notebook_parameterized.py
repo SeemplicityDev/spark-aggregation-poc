@@ -49,7 +49,6 @@ config = Config(
         "password": postgres_password,
         "driver": "org.postgresql.Driver"
     },
-    is_databricks=True,
     catalog_table_prefix="general_data.default.",
     customer=customer_schema
 

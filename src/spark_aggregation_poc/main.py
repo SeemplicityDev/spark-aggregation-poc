@@ -2,6 +2,7 @@ import os
 
 from pyspark.sql import SparkSession
 
+from spark_aggregation_poc.config.config import Config, ConfigLoader
 from spark_aggregation_poc.run_aggregation import run_aggregation
 
 
@@ -25,7 +26,9 @@ def main():
     except:
         print("SHOW CATALOGS not supported")
 
-    run_aggregation(spark)
+    config: Config = ConfigLoader.load_config()
+    config.catalog_table_prefix = "spark_catalog.default."
+    run_aggregation(spark, config)
 
 
 

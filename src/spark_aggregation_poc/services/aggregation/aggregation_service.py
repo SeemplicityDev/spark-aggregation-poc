@@ -6,7 +6,7 @@ from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, co
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
-    FilterConfigParserInterface
+    FilterConfigParserInterface, CatalogDataInterface
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
@@ -19,22 +19,23 @@ class AggregationService(FindingsAggregatorInterface):
     _allow_init = False
 
     @classmethod
-    def create_aggregation_service(cls, config: Config, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
+    def create_aggregation_service(cls, config: Config, catalog_repository: CatalogDataInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         cls._allow_init = True
-        result = AggregationService(config=config, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
+        result = AggregationService(config=config, catalog_repository=catalog_repository, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
         cls._allow_init = False
 
         return result
 
 
-    def __init__(self, config: Config, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
+    def __init__(self, config: Config, catalog_repository:CatalogDataInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         self.config = config
+        self.catalog_repository = catalog_repository
         self.rule_loader = rule_loader
         self.filters_config_parser = filters_config_parser
 
 
     def aggregate_findings(self, spark:SparkSession, findings_df: DataFrame = None, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
-        findings_df = self.create_base_df(spark)
+        findings_df = self.catalog_repository.read_base_findings(spark)
 
         spark_rules: list[AggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print(f"Loaded {len(spark_rules)} aggregation rules")
@@ -230,84 +231,6 @@ class AggregationService(FindingsAggregatorInterface):
 
         return valid_columns
 
-
-    def create_base_df(self, spark: SparkSession) -> DataFrame:
-        # After tables are saved to catalog, create a view from the raw join
-        print("Creating base findings view from catalog tables...")
-
-        # Use different table references based on environment
-        if self.config.is_databricks:
-            table_prefix = "general_data.default"
-        else:
-            table_prefix = "spark_catalog.default"  # Use spark_catalog for local
-
-        sql_str = f"""
-               CREATE OR REPLACE TEMPORARY VIEW base_findings_view AS
-               SELECT
-                   findings.id as finding_id,
-                   findings.package_name as package_name,
-                   findings.main_resource_id,
-                   findings.aggregation_group_id,
-                   findings.source,
-                   findings.rule_family,
-                   findings.rule_id,
-                   finding_sla_rule_connections.finding_id as sla_connection_id,
-                   plain_resources.id as resource_id,
-                   plain_resources.cloud_account,
-                   plain_resources.cloud_account_friendly_name as root_cloud_account_friendly_name,
-                   plain_resources.r1_resource_type as resource_type,
-                   plain_resources.tags_values as tags_values,
-                   plain_resources.tags_key_values as tags_key_values,
-                   plain_resources.cloud_provider as cloud_provider,
-                   findings_scores.finding_id as score_finding_id,
-                   findings_scores.severity,
-                   user_status.id as user_status_id,
-                   user_status.actual_status_key,
-                   findings_additional_data.finding_id as additional_data_id,
-                   statuses.key as status_key,
-                   aggregation_groups.id as existing_group_id,
-                   aggregation_groups.main_finding_id as existing_main_finding_id,
-                   aggregation_groups.group_identifier as existing_group_identifier,
-                   aggregation_groups.is_locked,
-                   findings_info.id as findings_info_id,
-                   findings.finding_type_str as finding_type,
-                   findings.fix_subtype as fix_subtype,
-                   statuses.category as category,
-                   findings.fix_id as fix_id,
-                   findings_additional_data.cve[1] as cve,
-                   findings.fix_type as fix_type,
-                   selection_rules.scope_group as scope_group
-               FROM {table_prefix}.findings
-               LEFT OUTER JOIN {table_prefix}.finding_sla_rule_connections ON
-                    findings.id = finding_sla_rule_connections.finding_id
-               JOIN {table_prefix}.plain_resources ON
-                   findings.main_resource_id = plain_resources.id
-               JOIN {table_prefix}.findings_scores ON
-                   findings.id = findings_scores.finding_id
-               JOIN {table_prefix}.user_status ON
-                   user_status.id = findings.id
-               LEFT OUTER JOIN {table_prefix}.findings_additional_data ON
-                   findings.id = findings_additional_data.finding_id
-               JOIN {table_prefix}.statuses ON
-                   statuses.key = user_status.actual_status_key
-               LEFT OUTER JOIN {table_prefix}.aggregation_groups ON
-                   findings.aggregation_group_id = aggregation_groups.id
-               LEFT OUTER JOIN {table_prefix}.findings_info ON
-                   findings_info.id = findings.id
-               LEFT OUTER JOIN {table_prefix}.scoring_rules ON
-                    findings_scores.scoring_rule_id = scoring_rules.id
-               LEFT OUTER JOIN {table_prefix}.selection_rules ON
-                    scoring_rules.selection_rule_id = selection_rules.id
-               WHERE findings.package_name IS NOT NULL
-               AND (findings.id <> aggregation_groups.main_finding_id
-               OR findings.aggregation_group_id is null)
-               """
-
-        spark.sql(sql_str)
-
-        # Now read the view as a DataFrame
-        df = spark.table("base_findings_view")
-        return df
 
 
     def apply_filters_config_to_dataframe(self, df: DataFrame, filters_config: Dict[str, Any]) -> DataFrame:

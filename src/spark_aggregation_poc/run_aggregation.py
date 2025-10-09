@@ -2,21 +2,21 @@ from pyspark.sql import SparkSession
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
-from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface, FindingsAggregatorInterface, \
+from spark_aggregation_poc.interfaces.interfaces import FindingsImportInterface, FindingsAggregatorInterface, \
     AggregatedWriterInterface
 
 
 def run_aggregation(spark: SparkSession, config: Config = None):
     try:
         app_context: AppContext = build_app_context(config)
-        read_service: FindingsReaderInterface = app_context.read_service
+        read_service: FindingsImportInterface = app_context.read_service
         aggregation_service: FindingsAggregatorInterface = app_context.aggregation_service
         write_service: AggregatedWriterInterface = app_context.write_service
 
         from time import time
 
         start = time()
-        read_service.read_findings_data(spark=spark)
+        read_service.import_findings_data(spark=spark)
         print(f"Read time: {time() - start:.2f} seconds")
 
         start = time()

@@ -1,34 +1,33 @@
-import os
 from datetime import datetime
-from typing import List, Tuple
+from typing import Tuple
 
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface
-from spark_aggregation_poc.services.write_util import WriteUtil
+from spark_aggregation_poc.interfaces.interfaces import FindingsImportInterface, CatalogDataInterface
 
 
-class ReadService(FindingsReaderInterface):
+class ImportService(FindingsImportInterface):
     _allow_init = False
 
     @classmethod
-    def create_read_service(cls, config: Config):
+    def create_import_service(cls, config: Config, catalog_repository: CatalogDataInterface):
         cls._allow_init = True
-        result = ReadService(config)
+        result = ImportService(config, catalog_repository)
         cls._allow_init = False
 
         return result
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, catalog_repository: CatalogDataInterface):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
         self.config = config
+        self.catalog_repository = catalog_repository
 
-    def read_findings_data(self, spark: SparkSession,
-                           large_table_batch_size: int = 3200000,
-                           connections_per_batch: int = 32,
-                           max_id_override: int = None) -> None:
+    def import_findings_data(self, spark: SparkSession,
+                             large_table_batch_size: int = 3200000,
+                             connections_per_batch: int = 32,
+                             max_id_override: int = None) -> None:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 
@@ -63,14 +62,14 @@ class ReadService(FindingsReaderInterface):
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
             df = self.load_medium_table(spark, table_name, max_id_override)
-            WriteUtil.save_to_catalog(self.config, df, table_name)
+            self.catalog_repository.save_to_catalog(df, table_name)
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
         print("\n--- Loading Small Tables (Single Connection + Broadcast) ---")
         for table_name in small_tables:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
-            WriteUtil.save_to_catalog(self.config, df, table_name)
+            self.catalog_repository.save_to_catalog(df, table_name)
 
 
 
@@ -109,7 +108,7 @@ class ReadService(FindingsReaderInterface):
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch
             )
-            WriteUtil.save_to_catalog(self.config, batch_df, table_name)
+            self.catalog_repository.save_to_catalog(batch_df, table_name)
 
 
     def apply_max_id_override(self, max_id, max_id_override, min_id, table_name):

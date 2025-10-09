@@ -6,13 +6,13 @@ from pyspark.sql import SparkSession, DataFrame
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
-class FindingsReaderInterface(ABC):
+class FindingsImportInterface(ABC):
 
     @abstractmethod
-    def read_findings_data(self, spark: SparkSession,
-                           large_table_batch_size: int,
-                           connections_per_batch: int,
-                           max_id_override: int) -> None:
+    def import_findings_data(self, spark: SparkSession,
+                             large_table_batch_size: int,
+                             connections_per_batch: int,
+                             max_id_override: int) -> None:
         """Read findings data and save in databricks catalog"""
         pass
 
@@ -56,4 +56,21 @@ class FilterConfigParserInterface(ABC):
         pass
 
 
+class PostgresRepositoryInterface(ABC):
+
+    @abstractmethod
+    def query(self, spark: SparkSession, query: str) -> DataFrame:
+        pass
+
+
+
+class CatalogDataInterface(ABC):
+
+    @abstractmethod
+    def read_base_findings(self, spark: SparkSession) -> DataFrame:
+        pass
+
+    @abstractmethod
+    def save_to_catalog(cls, df: DataFrame, table_name: str):
+        pass
 

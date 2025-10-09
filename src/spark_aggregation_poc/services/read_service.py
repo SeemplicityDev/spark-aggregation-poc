@@ -6,6 +6,7 @@ from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface
+from spark_aggregation_poc.services.write_util import WriteUtil
 
 
 class ReadService(FindingsReaderInterface):
@@ -62,42 +63,17 @@ class ReadService(FindingsReaderInterface):
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
             df = self.load_medium_table(spark, table_name, max_id_override)
-            self.save_to_catalog(df, table_name)
+            WriteUtil.save_to_catalog(self.config, df, table_name)
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
         print("\n--- Loading Small Tables (Single Connection + Broadcast) ---")
         for table_name in small_tables:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
-            self.save_to_catalog(df, table_name)
+            WriteUtil.save_to_catalog(self.config, df, table_name)
 
 
-    def save_to_catalog(self, df, table_name):
-        from datetime import datetime
 
-        # Determine the catalog and table reference based on environment
-        if self.config.is_databricks:
-            catalog_table = f"general_data.default.{table_name}"
-            environment = "Databricks Unity Catalog"
-        else:
-            catalog_table = f"spark_catalog.default.{table_name}"
-            environment = "local spark_catalog"
-
-        print(f"Saving {table_name} to {environment}")
-
-        try:
-            # Unified approach: use saveAsTable for both environments
-            df.write \
-                .format("delta") \
-                .mode("overwrite") \
-                .saveAsTable(catalog_table)
-            print(f"✓ {table_name}: saved to {catalog_table}")
-
-        except Exception as e:
-            print(f"❌ Failed to save {table_name} to catalog: {e}")
-
-        save_start_time = datetime.now()
-        print(f"Save completed at: {save_start_time.strftime('%H:%M:%S')}")
 
 
     def load_large_table_batched(self, spark: SparkSession, table_name: str,
@@ -133,7 +109,7 @@ class ReadService(FindingsReaderInterface):
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch
             )
-            self.save_to_catalog(batch_df, table_name)
+            WriteUtil.save_to_catalog(self.config, batch_df, table_name)
 
 
     def apply_max_id_override(self, max_id, max_id_override, min_id, table_name):

@@ -2,7 +2,8 @@ from pyspark.sql import SparkSession
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
-from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface, FindingsAggregatorInterface, AggregatedWriterInterface
+from spark_aggregation_poc.interfaces.interfaces import FindingsReaderInterface, FindingsAggregatorInterface, \
+    AggregatedWriterInterface
 
 
 def run_aggregation(spark: SparkSession, config: Config = None):
@@ -26,11 +27,11 @@ def run_aggregation(spark: SparkSession, config: Config = None):
         df_final_finding_group_association.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
-        # print("\n=== Writing Aggregation table and Association table ===")
-        # start = time()
-        # write_service.write_finding_group_rollup(df_final_finding_group_rollup)
-        # write_service.write_finding_group_association(df_final_finding_group_association)
-        # print(f"Write time: {time() - start:.2f} seconds")
+        print("\n=== Writing Aggregation table and Association table ===")
+        start = time()
+        write_service.write_finding_group_rollup(df_final_finding_group_rollup)
+        write_service.write_finding_group_association(df_final_finding_group_association)
+        print(f"Write time: {time() - start:.2f} seconds")
 
     except Exception as e:
         print(f"Error aggregating! {e}")

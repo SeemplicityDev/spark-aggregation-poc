@@ -27,7 +27,7 @@ class ImportService(FindingsImportInterface):
     def import_findings_data(self, spark: SparkSession,
                              large_table_batch_size: int = 3200000,
                              connections_per_batch: int = 32,
-                             max_id_override: int = None) -> None:
+                             max_id_override: int = 20000000) -> None:
         """
         Load tables separately based on size (L/M/S) and join them in Spark.
 

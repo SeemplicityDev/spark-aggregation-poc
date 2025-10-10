@@ -83,3 +83,10 @@ class CatalogDalInterface(ABC):
     def save_to_catalog(cls, df: DataFrame, table_name: str):
         pass
 
+
+
+class FileDalInterface(ABC):
+
+    @abstractmethod
+    def save_file(self, df: DataFrame, file_name: str):
+        pass

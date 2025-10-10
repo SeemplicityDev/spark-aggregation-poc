@@ -16,27 +16,27 @@ def run_aggregation(spark: SparkSession, config: Config = None):
 
         from time import time
 
-        start = time()
-        import_service.import_findings_data(spark=spark)
-        print(f"Read time: {time() - start:.2f} seconds")
-
-        start = time()
-        df_final_finding_group_rollup, df_final_finding_group_association = aggregation_service.aggregate_findings(spark=spark)
-        print("\n=== Final Group Aggregation Columns ===")
-        df_final_finding_group_rollup.show()
-        print("\n=== Final Finding Group Association ===")
-        df_final_finding_group_association.show()
-        print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
-
-        print("\n=== Writing Association table and  Aggregation  table ===")
-        start = time()
-        aggregation_service.write_aggregated_findings(spark, df_final_finding_group_association, df_final_finding_group_rollup)
-        print(f"Write time: {time() - start:.2f} seconds")
+        # start = time()
+        # import_service.import_findings_data(spark=spark)
+        # print(f"Read time: {time() - start:.2f} seconds")
+        #
+        # start = time()
+        # df_final_finding_group_rollup, df_final_finding_group_association = aggregation_service.aggregate_findings(spark=spark)
+        # print("\n=== Final Group Aggregation Columns ===")
+        # df_final_finding_group_rollup.show()
+        # print("\n=== Final Finding Group Association ===")
+        # df_final_finding_group_association.show()
+        # print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
+        #
+        # print("\n=== Writing Association table and  Aggregation  table ===")
+        # start = time()
+        # aggregation_service.write_aggregated_findings(spark, df_final_finding_group_association, df_final_finding_group_rollup)
+        # print(f"Write time: {time() - start:.2f} seconds")
 
         print("\n=== Reading Association table and Aggregation table  ===")
-        df = spark.table("finding_group_association")
+        df = spark.table(f"{config.catalog_table_prefix}finding_group_association")
         df.show()
-        df = spark.table("finding_group_rollup")
+        df = spark.table(f"{config.catalog_table_prefix}finding_group_rollup")
         df.show()
 
     except Exception as e:

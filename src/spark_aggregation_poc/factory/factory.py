@@ -1,10 +1,12 @@
 
 from spark_aggregation_poc.config.config import Config
+from spark_aggregation_poc.dal.FileDal import FileDal
 from spark_aggregation_poc.dal.catalog_dal import CatalogDal
 from spark_aggregation_poc.dal.relational_dal import RelationalDal
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \
     AggregatedFindingsExporterInterface, \
-    FilterConfigParserInterface, CatalogDalInterface, AggregationChangeCalculatorInterface, RelationalDalInterface
+    FilterConfigParserInterface, CatalogDalInterface, AggregationChangeCalculatorInterface, RelationalDalInterface, \
+    FileDalInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
     AggregationService
 from spark_aggregation_poc.services.change_calculation_service import ChangeCalculationService
@@ -38,6 +40,7 @@ class Factory:
     @classmethod
     def create_exporter(cls, config: Config) -> AggregatedFindingsExporterInterface:
         catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
-        return ExportService.create_export_service(config=config)
+        file_dal: FileDalInterface = FileDal.create_file_dal(config=config)
+        return ExportService.create_export_service(config=config, catalog_dal=catalog_dal, file_dal=file_dal)
 
 

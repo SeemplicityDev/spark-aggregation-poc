@@ -85,6 +85,10 @@ class AggregationService(FindingsAggregatorInterface):
 
         return df_final_finding_group_rollup, df_final_finding_group_association
 
+    def write_aggregated_findings(self, spark:SparkSession, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame):
+        self.catalog_repository.save_to_catalog(df_final_finding_group_association, "finding_group_association")
+        self.catalog_repository.save_to_catalog(df_final_finding_group_rollup, "finding_group_rollup")
+
 
     def union_finding_group_rollup(self, all_finding_group_rollup: List[DataFrame], findings_df: DataFrame) -> DataFrame:
         if all_finding_group_rollup:

@@ -6,7 +6,7 @@ from pyspark.sql import SparkSession, DataFrame
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
-class FindingsImportInterface(ABC):
+class FindingsImporterInterface(ABC):
 
     @abstractmethod
     def import_findings_data(self, spark: SparkSession,
@@ -26,16 +26,23 @@ class FindingsAggregatorInterface(ABC):
         """Aggregate findings data and return aggregated data (association-table, groups-table)"""
         pass
 
-
-
-class AggregatedWriterInterface(ABC):
-
     @abstractmethod
-    def write_finding_group_rollup(self, df: DataFrame) -> None:
+    def write_aggregated_findings(self, spark:SparkSession, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame):
+        """Aggregate findings data and return aggregated data (association-table, groups-table)"""
         pass
 
+
+class AggregationChangeCalculatorInterface(ABC):
+
     @abstractmethod
-    def write_finding_group_association(self, df: DataFrame) -> None:
+    def calculate_aggregation_changes(self, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame) -> None:
+        pass
+
+
+class AggregatedFindingsExporterInterface(ABC):
+
+    @abstractmethod
+    def export_aggregated_findings_changes(self, df: DataFrame) -> None:
         pass
 
 

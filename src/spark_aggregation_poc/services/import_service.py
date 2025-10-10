@@ -4,10 +4,10 @@ from typing import Tuple
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import FindingsImportInterface, CatalogDataInterface
+from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, CatalogDataInterface
 
 
-class ImportService(FindingsImportInterface):
+class ImportService(FindingsImporterInterface):
     _allow_init = False
 
     @classmethod

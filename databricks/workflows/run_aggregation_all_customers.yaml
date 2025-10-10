@@ -11,7 +11,9 @@ resources:
       tasks:
         - task_key: loop_over_customers
           for_each_task:
-            inputs: '[{"customer_schema":"carlsberg","postgres_host":"vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com","postgres_port":54323,"postgres_db":"postgres","postgres_user":"postgres","postgres_password":"<password>"},{"customer_schema":"unilever","postgres_host":"vpce-0ab78c002b187f211-1l5gyxsr.vpce-svc-0ec8249541aa206d0.eu-central-1.vpce.amazonaws.com","postgres_port":54322,"postgres_db":"postgres","postgres_user":"postgres","postgres_password":"<password>"}]'
+            inputs: '[ { "customer_schema": "carlsberg", "postgres_port": 54323,
+              "postgres_db": "postgres" }, { "customer_schema": "unilever",
+              "postgres_port": 54322, "postgres_db": "postgres" }]'
             concurrency: 10
             task:
               task_key: run_aggregation_single_customer

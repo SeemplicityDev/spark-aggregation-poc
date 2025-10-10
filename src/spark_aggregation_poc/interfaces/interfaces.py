@@ -62,15 +62,18 @@ class FilterConfigParserInterface(ABC):
         pass
 
 
-class PostgresRepositoryInterface(ABC):
+class RelationalDalInterface(ABC):
 
     @abstractmethod
     def query(self, spark: SparkSession, query: str) -> DataFrame:
         pass
 
+    @abstractmethod
+    def query_with_multiple_connections(self, spark: SparkSession, num_connections: int, query: str, id_column: str, start_id: int, end_id: int) -> DataFrame:
+        pass
 
 
-class CatalogDataInterface(ABC):
+class CatalogDalInterface(ABC):
 
     @abstractmethod
     def read_base_findings(self, spark: SparkSession) -> DataFrame:

@@ -1,9 +1,10 @@
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.dal.catalog_repository import CatalogRepository
+from spark_aggregation_poc.dal.catalog_dal import CatalogDal
+from spark_aggregation_poc.dal.relational_dal import RelationalDal
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \
     AggregatedFindingsExporterInterface, \
-    FilterConfigParserInterface, CatalogDataInterface, AggregationChangeCalculatorInterface
+    FilterConfigParserInterface, CatalogDalInterface, AggregationChangeCalculatorInterface, RelationalDalInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
     AggregationService
 from spark_aggregation_poc.services.change_calculation_service import ChangeCalculationService
@@ -17,15 +18,16 @@ class Factory:
 
     @classmethod
     def create_importer(cls, config: Config) -> FindingsImporterInterface:
-        catalog_repository: CatalogDataInterface = CatalogRepository.create_catalog_repository(config=config)
-        return ImportService.create_import_service(config=config, catalog_repository=catalog_repository)
+        relational_dal: RelationalDalInterface = RelationalDal.create_relational_dal(config)
+        catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
+        return ImportService.create_import_service(config=config, relational_dal=relational_dal, catalog_dal=catalog_dal)
 
     @classmethod
     def create_aggregator(cls, config: Config) -> FindingsAggregatorInterface:
         filters_config_parser: FilterConfigParserInterface = FiltersConfigParser.create_filters_config_parser()
         rule_loader: RuleLoaderInterface = RuleLoaderService.create_rule_loader(config)
-        catalog_repository: CatalogDataInterface = CatalogRepository.create_catalog_repository(config=config)
-        return AggregationService.create_aggregation_service(config=config, catalog_repository=catalog_repository, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
+        catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
+        return AggregationService.create_aggregation_service(config=config, catalog_dal=catalog_dal, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
 
 
     @classmethod
@@ -35,7 +37,7 @@ class Factory:
 
     @classmethod
     def create_exporter(cls, config: Config) -> AggregatedFindingsExporterInterface:
-        catalog_repository: CatalogDataInterface = CatalogRepository.create_catalog_repository(config=config)
+        catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
         return ExportService.create_export_service(config=config)
 
 

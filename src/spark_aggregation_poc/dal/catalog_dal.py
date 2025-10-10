@@ -1,16 +1,16 @@
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import CatalogDataInterface
+from spark_aggregation_poc.interfaces.interfaces import CatalogDalInterface
 
 
-class CatalogRepository(CatalogDataInterface):
+class CatalogDal(CatalogDalInterface):
     _allow_init = False
 
     @classmethod
-    def create_catalog_repository(cls, config):
+    def create_catalog_dal(cls, config):
         cls._allow_init = True
-        result = CatalogRepository(config=config)
+        result = CatalogDal(config=config)
         cls._allow_init = False
 
         return result

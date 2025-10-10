@@ -23,4 +23,8 @@ def build_app_context(config: Config = None) -> AppContext:
     aggregation_service: FindingsAggregatorInterface = Factory.create_aggregator(config)
     change_calculation_service: AggregationChangeCalculatorInterface = Factory.create_change_calculator(config)
     export_service: AggregatedFindingsExporterInterface = Factory.create_exporter(config)
-    return AppContext(config=config, import_service=import_service, aggregation_service=aggregation_service, change_calculation_service=change_calculation_service, export_service=export_service)
+    return AppContext(config=config,
+                      import_service=import_service,
+                      aggregation_service=aggregation_service,
+                      change_calculation_service=change_calculation_service,
+                      export_service=export_service)

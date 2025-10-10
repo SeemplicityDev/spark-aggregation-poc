@@ -6,7 +6,7 @@ from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, co
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
-    FilterConfigParserInterface, CatalogDataInterface
+    FilterConfigParserInterface, CatalogDalInterface
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
@@ -19,23 +19,23 @@ class AggregationService(FindingsAggregatorInterface):
     _allow_init = False
 
     @classmethod
-    def create_aggregation_service(cls, config: Config, catalog_repository: CatalogDataInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
+    def create_aggregation_service(cls, config: Config, catalog_dal: CatalogDalInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         cls._allow_init = True
-        result = AggregationService(config=config, catalog_repository=catalog_repository, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
+        result = AggregationService(config=config, catalog_dal=catalog_dal, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
         cls._allow_init = False
 
         return result
 
 
-    def __init__(self, config: Config, catalog_repository:CatalogDataInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
+    def __init__(self, config: Config, catalog_dal:CatalogDalInterface, rule_loader: RuleLoaderInterface, filters_config_parser: FilterConfigParserInterface):
         self.config = config
-        self.catalog_repository = catalog_repository
+        self.catalog_dal = catalog_dal
         self.rule_loader = rule_loader
         self.filters_config_parser = filters_config_parser
 
 
     def aggregate_findings(self, spark:SparkSession, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
-        findings_df = self.catalog_repository.read_base_findings(spark)
+        findings_df = self.catalog_dal.read_base_findings(spark)
 
         spark_rules: list[AggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
         print(f"Loaded {len(spark_rules)} aggregation rules")
@@ -86,8 +86,8 @@ class AggregationService(FindingsAggregatorInterface):
         return df_final_finding_group_rollup, df_final_finding_group_association
 
     def write_aggregated_findings(self, spark:SparkSession, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame):
-        self.catalog_repository.save_to_catalog(df_final_finding_group_association, "finding_group_association")
-        self.catalog_repository.save_to_catalog(df_final_finding_group_rollup, "finding_group_rollup")
+        self.catalog_dal.save_to_catalog(df_final_finding_group_association, "finding_group_association")
+        self.catalog_dal.save_to_catalog(df_final_finding_group_rollup, "finding_group_rollup")
 
 
     def union_finding_group_rollup(self, all_finding_group_rollup: List[DataFrame], findings_df: DataFrame) -> DataFrame:

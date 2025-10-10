@@ -4,25 +4,27 @@ from typing import Tuple
 from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, CatalogDataInterface
+from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, CatalogDalInterface, \
+    RelationalDalInterface
 
 
 class ImportService(FindingsImporterInterface):
     _allow_init = False
 
     @classmethod
-    def create_import_service(cls, config: Config, catalog_repository: CatalogDataInterface):
+    def create_import_service(cls, config: Config, relational_dal:RelationalDalInterface, catalog_dal: CatalogDalInterface):
         cls._allow_init = True
-        result = ImportService(config, catalog_repository)
+        result = ImportService(config, relational_dal, catalog_dal)
         cls._allow_init = False
 
         return result
 
-    def __init__(self, config: Config, catalog_repository: CatalogDataInterface):
+    def __init__(self, config: Config, relational_dal:RelationalDalInterface, catalog_dal: CatalogDalInterface):
         self.postgres_properties = config.postgres_properties
         self.postgres_url = config.postgres_url
         self.config = config
-        self.catalog_repository = catalog_repository
+        self.relational_dal = relational_dal
+        self.catalog_dal = catalog_dal
 
     def import_findings_data(self, spark: SparkSession,
                              large_table_batch_size: int = 3200000,
@@ -62,14 +64,14 @@ class ImportService(FindingsImporterInterface):
         for table_name in medium_tables:
             print(f"\nLoading medium table: {table_name}")
             df = self.load_medium_table(spark, table_name, max_id_override)
-            self.catalog_repository.save_to_catalog(df, table_name)
+            self.catalog_dal.save_to_catalog(df, table_name)
 
         # 3. Load Small Tables (S) - Use single connection + broadcast
         print("\n--- Loading Small Tables (Single Connection + Broadcast) ---")
         for table_name in small_tables:
             print(f"\nLoading small table: {table_name}")
             df = self.load_small_table(spark, table_name)
-            self.catalog_repository.save_to_catalog(df, table_name)
+            self.catalog_dal.save_to_catalog(df, table_name)
 
 
 
@@ -108,7 +110,7 @@ class ImportService(FindingsImporterInterface):
             batch_df = self.load_table_batch_with_connections(
                 spark, table_name, id_column, start_id, end_id, connections_per_batch
             )
-            self.catalog_repository.save_to_catalog(batch_df, table_name)
+            self.catalog_dal.save_to_catalog(batch_df, table_name)
 
 
     def apply_max_id_override(self, max_id, max_id_override, min_id, table_name):
@@ -144,25 +146,19 @@ class ImportService(FindingsImporterInterface):
             if max_id < original_max_id:
                 print(f"  {table_name} ID range limited by override: {min_id:,} to {max_id:,} (original max: {original_max_id:,})")
 
-        return spark.read.jdbc(
-            url=self.postgres_url,
-            table=table_name,
-            column=id_column,
-            lowerBound=min_id,
-            upperBound=max_id,
-            numPartitions=4,  # Use 4 connections
-            properties=self.get_optimized_properties()
+        return self.relational_dal.query_with_multiple_connections(
+            spark,
+            num_connections=4,
+            query=table_name,
+            id_column=id_column,
+            start_id=min_id,
+            end_id=max_id
         )
 
 
     def load_small_table(self, spark: SparkSession, table_name: str) -> DataFrame:
         """Load small table using single connection"""
-
-        return spark.read.jdbc(
-            url=self.postgres_url,
-            table=table_name,
-            properties=self.get_optimized_properties()
-        )
+        return self.relational_dal.query(spark, table_name)
 
 
     def load_table_batch_with_connections(self, spark: SparkSession, table_name: str,
@@ -172,17 +168,17 @@ class ImportService(FindingsImporterInterface):
 
         query = f"(SELECT * FROM {table_name} WHERE {id_column} BETWEEN {start_id} AND {end_id}) as batch"
 
-        return spark.read.jdbc(
-            url=self.postgres_url,
-            table=query,
-            column=id_column,
-            lowerBound=start_id,
-            upperBound=end_id,
-            numPartitions=num_connections,
-            properties=self.get_optimized_properties()
+        return self.query_with_multiple_connections(spark=spark, num_connections=num_connections, query=query, id_column=id_column, start_id=start_id, end_id=end_id)
+
+    def query_with_multiple_connections(self, spark: SparkSession, num_connections: int, query: str, id_column: str, start_id: int, end_id: int) -> DataFrame:
+        return self.relational_dal.query_with_multiple_connections(
+            spark,
+            num_connections=num_connections,
+            query=query,
+            id_column=id_column,
+            start_id=start_id,
+            end_id=end_id
         )
-
-
 
     def get_id_column_for_table(self, table_name: str) -> str:
         """Get the ID column name for each table"""
@@ -205,11 +201,7 @@ class ImportService(FindingsImporterInterface):
 
         bounds_query = f"(SELECT MIN({id_column}) as min_id, MAX({id_column}) as max_id FROM {table_name}) as bounds"
 
-        bounds_df = spark.read.jdbc(
-            url=self.postgres_url,
-            table=bounds_query,
-            properties=self.postgres_properties
-        )
+        bounds_df = self.relational_dal.query(spark=spark, query=bounds_query)
 
         row = bounds_df.collect()[0]
         min_id = row['min_id']
@@ -223,30 +215,15 @@ class ImportService(FindingsImporterInterface):
         return int(min_id), int(max_id)
 
 
+
     def get_empty_table_dataframe(self, spark: SparkSession, table_name: str) -> DataFrame:
         """Return empty DataFrame for a specific table"""
         empty_query = f"(SELECT * FROM {table_name} LIMIT 0) as empty_{table_name}"
-        return spark.read.jdbc(
-            url=self.postgres_url,
-            table=empty_query,
-            properties=self.postgres_properties
-        )
+        return self.relational_dal.query(spark=spark, query=empty_query)
 
 
 
-    def get_optimized_properties(self) -> dict:
-        """Get JDBC properties optimized for multi-connection batching"""
-        optimized_properties = self.postgres_properties.copy()
-        optimized_properties.update({
-            "fetchsize": "50000",  # Fetch size for each connection
-            "queryTimeout": "1800",  # 30 minute query timeout
-            "loginTimeout": "120",  # 2 minute login timeout
-            "socketTimeout": "1800",  # 30 minute socket timeout
-            "tcpKeepAlive": "true",  # Keep connections alive
-            "batchsize": "50000",  # Batch operations
-            "stringtype": "unspecified"  # Handle PostgreSQL strings
-        })
-        return optimized_properties
+
 
 
 

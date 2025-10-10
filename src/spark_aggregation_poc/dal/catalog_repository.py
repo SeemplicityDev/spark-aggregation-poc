@@ -59,7 +59,7 @@ class CatalogRepository(CatalogDataInterface):
                    findings.fix_type as fix_type,
                    selection_rules.scope_group as scope_group
                FROM {self.catalog_table_prefix}findings
-               LEFT OUTER JOIN finding_sla_rule_connections ON
+               LEFT OUTER JOIN {self.catalog_table_prefix}finding_sla_rule_connections ON
                     findings.id = finding_sla_rule_connections.finding_id
                JOIN {self.catalog_table_prefix}plain_resources ON
                    findings.main_resource_id = plain_resources.id

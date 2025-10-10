@@ -6,7 +6,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import RuleLoaderInterface
+from spark_aggregation_poc.interfaces.interfaces import RuleLoaderInterface, RelationalDalInterface
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
@@ -14,27 +14,17 @@ class RuleLoaderService(RuleLoaderInterface):
     _allow_init = False
 
     @classmethod
-    def create_rule_loader(cls, config: Config):
+    def create_rule_loader(cls, relational_dal: RelationalDalInterface) -> RuleLoaderInterface:
         cls._allow_init = True
-        result = RuleLoaderService(config)
+        result = RuleLoaderService(relational_dal)
         cls._allow_init = False
 
         return result
 
-    def __init__(self, config: Config):
-        self.jdbc_url = config.postgres_url
-        self.db_properties = config.postgres_properties
+    def __init__(self, relational_dal: RelationalDalInterface):
+        self.relational_dal = relational_dal
 
     def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[AggregationRule]:
-        """
-        Load aggregation rules from PostgreSQL using Spark JDBC
-
-        Args:
-            customer_id: Optional customer filter
-
-        Returns:
-            DataFrame with aggregation rules
-        """
         # Base query to get aggregation rules
         query = """
         (
@@ -50,11 +40,7 @@ class RuleLoaderService(RuleLoaderInterface):
         """
 
         # Load rules using Spark JDBC
-        rules_df = spark.read.jdbc(
-            url=self.jdbc_url,
-            table=query,
-            properties=self.db_properties
-        )
+        rules_df = self.relational_dal.query(spark, query)
 
         # Filter by customer if specified
         if customer_id:

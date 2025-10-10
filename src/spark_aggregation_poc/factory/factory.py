@@ -27,7 +27,8 @@ class Factory:
     @classmethod
     def create_aggregator(cls, config: Config) -> FindingsAggregatorInterface:
         filters_config_parser: FilterConfigParserInterface = FiltersConfigParser.create_filters_config_parser()
-        rule_loader: RuleLoaderInterface = RuleLoaderService.create_rule_loader(config)
+        relational_dal: RelationalDalInterface = RelationalDal.create_relational_dal(config)
+        rule_loader: RuleLoaderInterface = RuleLoaderService.create_rule_loader(relational_dal)
         catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
         return AggregationService.create_aggregation_service(config=config, catalog_dal=catalog_dal, rule_loader=rule_loader, filters_config_parser=filters_config_parser)
 

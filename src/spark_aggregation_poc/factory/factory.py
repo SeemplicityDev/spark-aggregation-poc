@@ -6,7 +6,7 @@ from spark_aggregation_poc.interfaces.interfaces import FindingsImportInterface,
     FilterConfigParserInterface, RuleLoaderInterface, CatalogDataInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
     AggregationService
-from spark_aggregation_poc.services.read_service import ImportService
+from spark_aggregation_poc.services.import_service import ImportService
 from spark_aggregation_poc.services.write_service import WriteService
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoaderInterface, RuleLoaderService
 from spark_aggregation_poc.utils.aggregation_rules.spark_filters_config_processor import FiltersConfigParser

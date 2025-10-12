@@ -11,16 +11,15 @@ from spark_aggregation_poc.schemas.schema_registry import (
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
-
 class TestAggregationBase:
     """
     Sanity tests for aggregation service with hardcoded test data.
     Data is created in code rather than loaded from JSON files.
     """
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def spark(self):
-        return SparkSession.builder \
+        spark_session = SparkSession.builder \
             .appName("PostgreSQLSparkApp") \
             .master("local[*]") \
             .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0") \
@@ -31,7 +30,14 @@ class TestAggregationBase:
             .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
             .getOrCreate()
 
-    @pytest.fixture
+        yield spark_session  # ← ADDED yield
+
+        # Cleanup after all tests
+        print("\n🧹 Stopping Spark session...")
+        spark_session.stop()  # ← ADDED cleanup
+
+
+    @pytest.fixture(scope="class")
     def test_config(self):
         """Configuration for component testing"""
         return Config(
@@ -40,6 +46,105 @@ class TestAggregationBase:
             catalog_table_prefix="",
             customer=""
         )
+
+    @pytest.fixture(scope="class", autouse=True)
+    def validated_test_environment(self, spark):
+        """
+        Fixture that runs automatically once per test class.
+        Sets up test data and runs all validation checks.
+
+        Args:
+            spark: SparkSession fixture
+
+        Note:
+            - scope="class" means it runs once for the entire test class
+            - autouse=True means it runs automatically without being explicitly requested
+        """
+        print("\n" + "=" * 70)
+        print("🔧 SETUP: Running base class setup and validation (once per class)")
+        print("=" * 70)
+
+        # Setup all temp views
+        self.setup_all_temp_views(spark)
+
+        # Run all validation checks
+        print("\n📋 Running base validation checks...")
+
+        try:
+            self._validate_basic_data_creation(spark)
+            self._validate_findings_by_package(spark)
+            self._validate_join_findings_with_resources(spark)
+
+            print("\n✅ All base validation checks passed!")
+            print("=" * 70)
+
+        except AssertionError as e:
+            print(f"\n❌ Base validation failed: {e}")
+            print("=" * 70)
+            raise
+
+        # Yield control to tests
+        yield
+
+        # Cleanup (runs after all tests in class complete)
+        print("\n🧹 TEARDOWN: Cleaning up test data")
+
+
+    def _validate_basic_data_creation(self, spark):
+        """Validate all temp views are created correctly (runs automatically)"""
+        print("  🔍 Validating basic data creation...")
+
+        findings_df = spark.table(TableNames.FINDINGS.value)
+        assert findings_df.count() == 10, "Expected 10 findings"
+
+        resources_df = spark.table(TableNames.PLAIN_RESOURCES.value)
+        assert resources_df.count() == 4, "Expected 4 plain_resources"
+
+        rules_df = spark.table(TableNames.AGGREGATION_RULES.value)
+        assert rules_df.count() == 2, "Expected 2 aggregation_rules"
+
+        print("  ✅ Basic data creation validated")
+
+    def _validate_findings_by_package(self, spark):
+        """Validate findings grouped by package_name (runs automatically)"""
+        print("  🔍 Validating findings by package...")
+
+        findings_df = spark.sql(f"""
+               SELECT {ColumnNames.PACKAGE_NAME}, COUNT(*) as count
+               FROM {TableNames.FINDINGS.value}
+               GROUP BY {ColumnNames.PACKAGE_NAME}
+               ORDER BY {ColumnNames.PACKAGE_NAME}
+           """)
+
+        results = findings_df.collect()
+        assert len(results) == 4, "Expected 4 distinct packages"
+        assert results[0][ColumnNames.PACKAGE_NAME] == "pkg0" and results[0]["count"] == 1
+        assert results[1][ColumnNames.PACKAGE_NAME] == "pkg1" and results[1]["count"] == 2
+        assert results[2][ColumnNames.PACKAGE_NAME] == "pkg2" and results[2]["count"] == 3
+        assert results[3][ColumnNames.PACKAGE_NAME] == "pkg3" and results[3]["count"] == 4
+
+        print("  ✅ Findings by package validated")
+
+    def _validate_join_findings_with_resources(self, spark):
+        """Validate join using ColumnNames constants (runs automatically)"""
+        print("  🔍 Validating findings-resources join...")
+
+        joined_df = spark.sql(f"""
+               SELECT f.{ColumnNames.ID}, f.{ColumnNames.PACKAGE_NAME}, 
+                      p.{ColumnNames.CLOUD_ACCOUNT}, p.{ColumnNames.CLOUD_PROVIDER}
+               FROM {TableNames.FINDINGS.value} f
+               JOIN {TableNames.PLAIN_RESOURCES.value} p 
+                   ON f.{ColumnNames.MAIN_RESOURCE_ID} = p.{ColumnNames.ID}
+               ORDER BY f.{ColumnNames.ID}
+           """)
+
+        assert joined_df.count() == 10, "Expected 10 joined records"
+
+        first_row = joined_df.first()
+        assert first_row[ColumnNames.CLOUD_ACCOUNT] == "koko_account"
+        assert first_row[ColumnNames.CLOUD_PROVIDER] == "koko_provider"
+
+        print("  ✅ Join validation passed")
 
     def create_findings_data(self, spark):
         """Create findings test data using SchemaRegistry"""
@@ -373,71 +478,6 @@ class TestAggregationBase:
             )
         ]
         return mock_rule_loader
-
-    def test_sanity_basic_data_creation(self, spark):
-        """Sanity test: Verify all temp views are created correctly"""
-        self.setup_all_temp_views(spark)
-
-        # Verify findings using TableNames
-        findings_df = spark.table(TableNames.FINDINGS.value)
-        assert findings_df.count() == 10, "Expected 10 findings"
-
-        # Verify plain_resources
-        resources_df = spark.table(TableNames.PLAIN_RESOURCES.value)
-        assert resources_df.count() == 4, "Expected 4 plain_resources"
-
-        # Verify aggregation_rules
-        rules_df = spark.table(TableNames.AGGREGATION_RULES.value)
-        assert rules_df.count() == 2, "Expected 2 aggregation_rules"
-
-        print("✅ Sanity test passed: All data created with SchemaRegistry")
-
-    def test_sanity_findings_by_package(self, spark):
-        """Sanity test: Verify findings grouped by package_name using ColumnNames"""
-        self.setup_all_temp_views(spark)
-
-        # Use ColumnNames constants
-        findings_df = spark.sql(f"""
-            SELECT {ColumnNames.PACKAGE_NAME}, COUNT(*) as count
-            FROM {TableNames.FINDINGS.value}
-            GROUP BY {ColumnNames.PACKAGE_NAME}
-            ORDER BY {ColumnNames.PACKAGE_NAME}
-        """)
-
-        findings_df.show()
-
-        results = findings_df.collect()
-        assert len(results) == 4, "Expected 4 distinct packages"
-        assert results[0][ColumnNames.PACKAGE_NAME] == "pkg0" and results[0]["count"] == 1
-        assert results[1][ColumnNames.PACKAGE_NAME] == "pkg1" and results[1]["count"] == 2
-        assert results[2][ColumnNames.PACKAGE_NAME] == "pkg2" and results[2]["count"] == 3
-        assert results[3][ColumnNames.PACKAGE_NAME] == "pkg3" and results[3]["count"] == 4
-
-        print("✅ Sanity test passed: Findings grouped by package using ColumnNames")
-
-    def test_sanity_join_findings_with_resources(self, spark):
-        """Sanity test: Verify join using ColumnNames constants"""
-        self.setup_all_temp_views(spark)
-
-        # Use ColumnNames constants
-        joined_df = spark.sql(f"""
-            SELECT f.{ColumnNames.ID}, f.{ColumnNames.PACKAGE_NAME}, 
-                   p.{ColumnNames.CLOUD_ACCOUNT}, p.{ColumnNames.CLOUD_PROVIDER}
-            FROM {TableNames.FINDINGS.value} f
-            JOIN {TableNames.PLAIN_RESOURCES.value} p 
-                ON f.{ColumnNames.MAIN_RESOURCE_ID} = p.{ColumnNames.ID}
-            ORDER BY f.{ColumnNames.ID}
-        """)
-
-        joined_df.show(5)
-
-        assert joined_df.count() == 10, "Expected 10 joined records"
-
-        first_row = joined_df.first()
-        assert first_row[ColumnNames.CLOUD_ACCOUNT] == "koko_account"
-        assert first_row[ColumnNames.CLOUD_PROVIDER] == "koko_provider"
-
-        print("✅ Sanity test passed: Join using ColumnNames constants")
 
     def get_local_warehouse_path(self):
         current_file = os.path.abspath(__file__)

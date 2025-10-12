@@ -1,6 +1,6 @@
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.dal.FileDal import FileDal
+from spark_aggregation_poc.dal.file_dal import FileDal
 from spark_aggregation_poc.dal.catalog_dal import CatalogDal
 from spark_aggregation_poc.dal.relational_dal import RelationalDal
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \

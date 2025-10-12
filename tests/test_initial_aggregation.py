@@ -1,4 +1,5 @@
 """Tests for initial aggregation functionality using SchemaRegistry and AggregationOutput"""
+import pytest
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import sum as spark_sum, size
 
@@ -16,6 +17,18 @@ class TestInitialAggregation(TestAggregationBase):
     Test class for initial aggregation functionality.
     Inherits all data setup methods from TestAggregationBase.
     """
+
+    # ==================== Explicitly Request Base Fixture ====================
+
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_class_with_validation(self, validated_test_environment):
+        """
+        Explicitly request the base class fixture.
+        This ensures validated_test_environment runs for this test class.
+        """
+        # validated_test_environment fixture runs here
+        yield
+        # Cleanup happens after all tests
 
     # ==================== Helper Methods ====================
 

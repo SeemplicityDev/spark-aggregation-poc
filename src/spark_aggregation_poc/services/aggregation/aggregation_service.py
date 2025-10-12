@@ -7,6 +7,8 @@ from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, co
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
     FilterConfigParserInterface, CatalogDalInterface
+from spark_aggregation_poc.models.aggregation_output import AggregationOutput
+from spark_aggregation_poc.schemas.schema_registry import ColumnNames, TableNames
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
@@ -34,7 +36,7 @@ class AggregationService(FindingsAggregatorInterface):
         self.filters_config_parser = filters_config_parser
 
 
-    def aggregate_findings(self, spark:SparkSession, customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
+    def aggregate_findings(self, spark:SparkSession, customer_id: Optional[int] = None) -> AggregationOutput:
         findings_df = self.catalog_dal.read_base_findings(spark)
 
         spark_rules: list[AggregationRule] = self.rule_loader.load_aggregation_rules(spark, customer_id)
@@ -61,7 +63,7 @@ class AggregationService(FindingsAggregatorInterface):
 
             if rule.group_by:
                 # Apply grouping and aggregation
-                df_finding_group_rollup, df_finding_group_association = self.create_groups(
+                df_finding_group_association, df_finding_group_rollup  = self.create_groups(
                     filtered_df,
                     rule.group_by,
                     rule_idx
@@ -80,14 +82,25 @@ class AggregationService(FindingsAggregatorInterface):
                     print(f"Rule {rule_idx + 1}: No groups created")
 
         # Union all rules into single Dataframe (one for rollup and one for association)
-        df_final_finding_group_rollup =  self.union_finding_group_rollup(all_finding_group_rollup, findings_df)
         df_final_finding_group_association = self.union_finding_group_association(all_finding_group_association, findings_df)
+        df_final_finding_group_rollup =  self.union_finding_group_rollup(all_finding_group_rollup, findings_df)
 
-        return df_final_finding_group_rollup, df_final_finding_group_association
+        return AggregationOutput(
+            finding_group_association=df_final_finding_group_association,
+            finding_group_rollup=df_final_finding_group_rollup,
+            validate_schema=True,  # Validates schemas on creation
+            validate_integrity=True  # Validates data integrity on creation
+        )
 
-    def write_aggregated_findings(self, spark:SparkSession, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame):
-        self.catalog_dal.save_to_catalog(df_final_finding_group_association, "finding_group_association")
-        self.catalog_dal.save_to_catalog(df_final_finding_group_rollup, "finding_group_rollup")
+    def write_aggregated_findings(self, spark: SparkSession, aggregation_output: AggregationOutput ):
+        self.catalog_dal.save_to_catalog(
+            aggregation_output.association,
+            TableNames.FINDING_GROUP_ASSOCIATION.value
+        )
+        self.catalog_dal.save_to_catalog(
+            aggregation_output.rollup,
+            TableNames.FINDING_GROUP_ROLLUP.value
+        )
 
 
     def union_finding_group_rollup(self, all_finding_group_rollup: List[DataFrame], findings_df: DataFrame) -> DataFrame:
@@ -171,15 +184,14 @@ class AggregationService(FindingsAggregatorInterface):
 
         df_finding_group_association: DataFrame = self.create_finding_group_association(df_finding_group_rollup)
 
-        return df_finding_group_rollup, df_finding_group_association
-
+        return df_finding_group_association, df_finding_group_rollup
 
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:
+        """Create association using ColumnNames constants"""
         result: DataFrame = df.select(
-            spark_col("group_id").alias("group_id"),
-            explode("finding_ids").alias("finding_id")
+            spark_col(ColumnNames.GROUP_ID).alias(ColumnNames.GROUP_ID),
+            explode(ColumnNames.FINDING_IDS).alias(ColumnNames.FINDING_ID)
         )
-
         return result
 
 

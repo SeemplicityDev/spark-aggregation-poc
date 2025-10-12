@@ -8,6 +8,8 @@ from pyspark.sql.functions import (
     first, bool_or
 )
 
+from spark_aggregation_poc.schemas.schema_registry import ColumnNames
+
 
 class RollupUtil:
     """
@@ -22,19 +24,13 @@ class RollupUtil:
 
     @classmethod
     def get_basic_rollup(cls, df: DataFrame, rule_idx: int) -> list[Column]:
-        """
-        Returns all aggregation expressions for the .agg() method
-        Combines basic fields with engine-compatible calculated fields
-        """
-
-        # Basic aggregations (your original 4 lines)
+        """Returns aggregations using ColumnNames constants"""
         basic_rollups: list[Column] = [
-            collect_list("finding_id").alias("finding_ids"),
-            collect_list("cloud_account").alias("cloud_accounts"),
-            count("finding_id").alias("findings_count"),
-            lit(rule_idx).alias("rule_number")
+            collect_list(ColumnNames.FINDING_ID).alias(ColumnNames.FINDING_IDS),
+            collect_list(ColumnNames.CLOUD_ACCOUNT).alias(ColumnNames.CLOUD_ACCOUNTS),
+            count(ColumnNames.FINDING_ID).alias(ColumnNames.FINDINGS_COUNT),
+            lit(rule_idx).alias(ColumnNames.RULE_NUMBER)
         ]
-
         return basic_rollups
 
     @classmethod

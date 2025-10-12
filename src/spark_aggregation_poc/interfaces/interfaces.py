@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 
 from pyspark.sql import SparkSession, DataFrame
 
+from spark_aggregation_poc.models.aggregation_output import AggregationOutput
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 
@@ -21,14 +22,11 @@ class FindingsImporterInterface(ABC):
 class FindingsAggregatorInterface(ABC):
 
     @abstractmethod
-    def aggregate_findings(self, spark:SparkSession,
-                  customer_id: Optional[int] = None) -> tuple[DataFrame, DataFrame]:
-        """Aggregate findings data and return aggregated data (association-table, groups-table)"""
+    def aggregate_findings(self,spark: SparkSession, customer_id: Optional[int] = None) -> AggregationOutput:
         pass
 
     @abstractmethod
-    def write_aggregated_findings(self, spark:SparkSession, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame):
-        """Aggregate findings data and return aggregated data (association-table, groups-table)"""
+    def write_aggregated_findings(self,spark: SparkSession,aggregation_output: AggregationOutput ):
         pass
 
 

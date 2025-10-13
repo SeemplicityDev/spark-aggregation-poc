@@ -8,6 +8,7 @@ from pyspark.sql.functions import col
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import RuleLoaderInterface, RelationalDalInterface
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
+from spark_aggregation_poc.schemas.schema_registry import ColumnNames, TableNames
 
 
 class RuleLoaderService(RuleLoaderInterface):
@@ -26,25 +27,21 @@ class RuleLoaderService(RuleLoaderInterface):
 
     def load_aggregation_rules(self, spark: SparkSession, customer_id: Optional[int] = None) -> list[AggregationRule]:
         # Base query to get aggregation rules
-        query = """
-        (
-            SELECT 
-                id,
-	            "order" as rule_order,
-                aggregation_query,
-                "type" as rule_type,	
-                field_calculation
-            FROM aggregation_rules
-            WHERE "type" = 'AGG'
-        ) as aggregation_rules_query
-        """
+        query = f"""
+            (
+                SELECT 
+                    {ColumnNames.ID},
+                    "{ColumnNames.ORDER}" as rule_order,
+                    {ColumnNames.AGGREGATION_QUERY},
+                    "{ColumnNames.TYPE}" as rule_type,
+                    {ColumnNames.FIELD_CALCULATION}
+                FROM {TableNames.AGGREGATION_RULES.value}
+                WHERE "{ColumnNames.TYPE}" = 'AGG'
+            ) as aggregation_rules_query
+            """
 
         # Load rules using Spark JDBC
         rules_df = self.relational_dal.query(spark, query)
-
-        # Filter by customer if specified
-        if customer_id:
-            rules_df = rules_df.filter(col("customer_id") == customer_id)
 
         rules_df.orderBy("rule_order")
 

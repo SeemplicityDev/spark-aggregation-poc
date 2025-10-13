@@ -138,6 +138,7 @@ class AggregationService(FindingsAggregatorInterface):
             print("❌ No finding group association created by any rule")
             return findings_df.limit(0)
 
+
     def create_groups(self, df: DataFrame, group_columns: List[str], rule_idx: int) -> tuple[DataFrame, DataFrame]:
         """
         Your existing create_groups method enhanced with debugging
@@ -146,7 +147,7 @@ class AggregationService(FindingsAggregatorInterface):
         print(f"🔍 Rule {rule_idx} - Requested group_columns: {group_columns}")
 
         # Clean and validate group columns
-        valid_columns = self.validate_and_clean_group_columns(df, group_columns)
+        valid_columns = self.remove_table_name_from_group_columns(group_columns)
 
         if not valid_columns:
             print(f"No valid group columns: {group_columns}")
@@ -177,12 +178,13 @@ class AggregationService(FindingsAggregatorInterface):
         except Exception as e:
             print(f"❌ Rule {rule_idx} - Error in groupBy/agg: {e}")
             print(f"DataFrame schema: {df.schema}")
-            print(f"Valid columns: {valid_columns}")
+            print(f"Group columns: {group_columns}")
             raise
 
         df_finding_group_association: DataFrame = self.create_finding_group_association(df_finding_group_rollup)
 
         return df_finding_group_association, df_finding_group_rollup
+
 
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:
         """Create association using ColumnNames constants"""
@@ -194,7 +196,7 @@ class AggregationService(FindingsAggregatorInterface):
 
 
 
-    def clean_group_columns(self, group_columns: List[str]) -> List[str]:
+    def remove_table_name_from_group_columns(self, group_columns: List[str]) -> List[str]:
         """
         Remove table prefixes from group column names
 
@@ -207,7 +209,7 @@ class AggregationService(FindingsAggregatorInterface):
         cleaned_columns = []
 
         for column in group_columns:
-            # Remove table prefixes (e.g., "findings.package_name" -> "package_name")
+            # Remove table name (e.g., "findings.package_name" -> "package_name")
             if '.' in column:
                 cleaned_column = column.split('.')[-1]  # Take the part after the last dot
             else:
@@ -230,7 +232,7 @@ class AggregationService(FindingsAggregatorInterface):
             List of valid, cleaned column names
         """
         # Clean the column names first
-        cleaned_columns = self.clean_group_columns(group_columns)
+        cleaned_columns = self.remove_table_name_from_group_columns(group_columns)
 
         # Validate columns exist in DataFrame
         df_columns = set(df.columns)

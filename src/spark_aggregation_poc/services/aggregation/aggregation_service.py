@@ -87,18 +87,16 @@ class AggregationService(FindingsAggregatorInterface):
 
         return AggregationOutput(
             finding_group_association=df_final_finding_group_association,
-            finding_group_rollup=df_final_finding_group_rollup,
-            validate_schema=True,  # Validates schemas on creation
-            validate_integrity=True  # Validates data integrity on creation
+            finding_group_rollup=df_final_finding_group_rollup
         )
 
     def write_aggregated_findings(self, spark: SparkSession, aggregation_output: AggregationOutput ):
         self.catalog_dal.save_to_catalog(
-            aggregation_output.association,
+            aggregation_output.finding_group_association,
             TableNames.FINDING_GROUP_ASSOCIATION.value
         )
         self.catalog_dal.save_to_catalog(
-            aggregation_output.rollup,
+            aggregation_output.finding_group_rollup,
             TableNames.FINDING_GROUP_ROLLUP.value
         )
 

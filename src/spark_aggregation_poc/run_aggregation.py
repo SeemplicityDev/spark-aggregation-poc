@@ -23,9 +23,9 @@ def run_aggregation(spark: SparkSession, config: Config = None):
         start = time()
         aggregation_output = aggregation_service.aggregate_findings(spark=spark)
         print("\n=== Final Finding Group Association ===")
-        aggregation_output.association.show()
+        aggregation_output.finding_group_association.show()
         print("\n=== Final Group Aggregation Columns ===")
-        aggregation_output.rollup.show()
+        aggregation_output.finding_group_rollup.show()
         print(f"Rules apply and aggregation time: {time() - start:.2f} seconds")
 
         print("\n=== Writing Association table and  Aggregation  table ===")

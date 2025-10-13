@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from pyspark.sql import SparkSession, DataFrame, Column
-from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, coalesce, lit
+from pyspark.sql.functions import expr, col as spark_col, explode, concat_ws, coalesce, lit, md5
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
@@ -169,9 +169,16 @@ class AggregationService(FindingsAggregatorInterface):
             df_finding_group_rollup: DataFrame = df.groupBy(*valid_columns).agg(
                 *all_rollups
             ).withColumn(
-                "group_id",
-                concat_ws("_", *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns])
-            )
+                ColumnNames.GROUP_IDENTIFIER,
+                md5(
+                    concat_ws(
+                        "-",
+                        lit(str(rule_idx)),
+                        *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns]
+                    )
+                )
+            ).withColumn("readable_group_id",
+                concat_ws("_", *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns]))
 
             print(f"✅ Rule {rule_idx} - Successfully created rollup with schema: {df_finding_group_rollup.columns}")
 
@@ -189,7 +196,8 @@ class AggregationService(FindingsAggregatorInterface):
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:
         """Create association using ColumnNames constants"""
         result: DataFrame = df.select(
-            spark_col(ColumnNames.GROUP_ID).alias(ColumnNames.GROUP_ID),
+            spark_col(ColumnNames.GROUP_IDENTIFIER).alias(ColumnNames.GROUP_IDENTIFIER),
+            spark_col("readable_group_id").alias("readable_group_id"),
             explode(ColumnNames.FINDING_IDS).alias(ColumnNames.FINDING_ID)
         )
         return result

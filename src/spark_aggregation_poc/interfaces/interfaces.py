@@ -30,7 +30,7 @@ class FindingsAggregatorInterface(ABC):
         pass
 
 
-class AggregationChangeCalculatorInterface(ABC):
+class AggregationDeltaCalculatorInterface(ABC):
 
     @abstractmethod
     def calculate_aggregation_changes(self, df_final_finding_group_association: DataFrame, df_final_finding_group_rollup: DataFrame) -> None:

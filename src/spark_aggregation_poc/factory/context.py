@@ -11,7 +11,7 @@ class AppContext:
     config: Config
     import_service: FindingsImporterInterface
     aggregation_service: FindingsAggregatorInterface
-    change_calculation_service: AggregationDeltaCalculatorInterface
+    delta_calculation_service: AggregationDeltaCalculatorInterface
     export_service: AggregatedFindingsExporterInterface
 
 def build_app_context(config: Config = None) -> AppContext:
@@ -26,5 +26,5 @@ def build_app_context(config: Config = None) -> AppContext:
     return AppContext(config=config,
                       import_service=import_service,
                       aggregation_service=aggregation_service,
-                      change_calculation_service=change_calculation_service,
+                      delta_calculation_service=change_calculation_service,
                       export_service=export_service)

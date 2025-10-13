@@ -94,7 +94,8 @@ class TestInitialAggregation(TestAggregationBase):
         print("\n🔍 Validating output consistency...")
 
         # Create temp views for SQL validation
-        output.create_temp_views("temp_association", "temp_rollup")
+        output.finding_group_association.createOrReplaceTempView("temp_association")
+        output.finding_group_rollup.createOrReplaceTempView("temp_rollup")
 
         # Verify each group's findings_count matches actual associations
         mismatch_query = f"""
@@ -133,5 +134,5 @@ class TestInitialAggregation(TestAggregationBase):
         if output.finding_group_association.count() > 0:
             self._validate_association_columns(output.finding_group_association)
             self._validate_rollup_columns(output.finding_group_rollup)
-            # self._validate_output_consistency(spark, output)
+            self._validate_output_consistency(spark, output)
 

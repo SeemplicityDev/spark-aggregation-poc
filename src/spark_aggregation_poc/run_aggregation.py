@@ -11,7 +11,7 @@ def run_aggregation(spark: SparkSession, config: Config = None):
         app_context: AppContext = build_app_context(config)
         import_service: FindingsImporterInterface = app_context.import_service
         aggregation_service: FindingsAggregatorInterface = app_context.aggregation_service
-        change_calculation_service: AggregationDeltaCalculatorInterface = app_context.change_calculation_service
+        delta_calculation_service: AggregationDeltaCalculatorInterface = app_context.delta_calculation_service
         export_service: AggregatedFindingsExporterInterface = app_context.export_service
 
         from time import time

@@ -9,7 +9,7 @@ from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterfac
     FileDalInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
     AggregationService
-from spark_aggregation_poc.services.change_calculation_service import DeltaCalculationService
+from spark_aggregation_poc.services.delta_calculation_service import DeltaCalculationService
 from spark_aggregation_poc.services.export_service import ExportService
 from spark_aggregation_poc.services.import_service import ImportService
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoaderInterface, RuleLoaderService

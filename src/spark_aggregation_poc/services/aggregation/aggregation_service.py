@@ -76,8 +76,8 @@ class AggregationService(FindingsAggregatorInterface):
                     all_finding_group_association.append(df_finding_group_association)
 
                     # Show sample
-                    df_finding_group_rollup.show(3)
-                    df_finding_group_association.show(3)
+                    df_finding_group_rollup.show(30, False)
+                    df_finding_group_association.show(30, False)
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 

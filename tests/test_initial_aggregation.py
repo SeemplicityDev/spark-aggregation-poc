@@ -30,7 +30,100 @@ class TestInitialAggregation(TestAggregationBase):
         yield
         # Cleanup happens after all tests
 
-    # ==================== Helper Methods ====================
+
+    def test_initial_aggregation(self, spark, test_config):
+        print("\n=== Running Initial Aggregation Test ===")
+        self.setup_all_temp_views(spark)
+
+        # Execute aggregation - returns AggregationOutput
+        output: AggregationOutput = self._run_aggregation(spark, test_config)
+
+        # Validate data integrity (only if we have data)
+        if output.finding_group_association.count() > 0:
+            self._validate_association_columns(output.finding_group_association)
+            self._validate_rollup_columns(output.finding_group_rollup)
+            self._validate_output_consistency(spark, output)
+            self._validate_correct_group_association(spark, output)
+
+
+    def _validate_correct_group_association(self, spark: SparkSession, output: AggregationOutput):
+        """
+        Direct complete DataFrame comparison using subtract().
+
+        Since group_id is deterministic (concat of group_by fields),
+        we can hardcode the expected DataFrame with exact group_ids.
+        """
+        print("\n=== Complete DataFrame Subtract ===")
+
+        # Run aggregation
+        actual_df = output.finding_group_association
+
+        # Hardcoded expected DataFrame with exact group_ids
+        # group_id format: {group_by_columns joined by underscore}
+        expected_data = [
+            # Rule 0: Group by package_name only
+            ("pkg0", 1),
+            ("pkg1", 2),
+            ("pkg1", 3),
+            ("pkg2", 4),
+            ("pkg2", 5),
+            ("pkg2", 6),
+            ("pkg3", 7),
+            ("pkg3", 8),
+            ("pkg3", 9),
+            ("pkg3", 10),
+
+            # Rule 1: Group by package_name + cloud_account
+            ("pkg0_koko_account", 1),
+            ("pkg1_koko_account", 2),
+            ("pkg1_koko_account", 3),
+            ("pkg2_koko_account", 4),
+            ("pkg2_koko_account", 5),
+            ("pkg2_koko_account", 6),
+            ("pkg3_koko_account", 7),
+            ("pkg3_koko_account", 8),
+            ("pkg3_koko_account", 9),
+            ("pkg3_koko_account", 10),
+        ]
+
+        # Create expected DataFrame with exact same schema
+        expected_df = spark.createDataFrame(
+            expected_data,
+            schema=SchemaRegistry.finding_group_association_schema()
+        )
+
+        print(f"\n📊 Expected: {expected_df.count()} rows")
+        print(f"📊 Actual: {actual_df.count()} rows")
+
+        print("\n📋 Expected DataFrame:")
+        expected_df.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(50, truncate=False)
+
+        print("\n📋 Actual DataFrame:")
+        actual_df.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(50, truncate=False)
+
+        # Direct subtract - comparing COMPLETE DataFrames (both columns)!
+        missing = expected_df.subtract(actual_df)
+        extra = actual_df.subtract(expected_df)
+
+        missing_count = missing.count()
+        extra_count = extra.count()
+
+        if missing_count > 0:
+            print("\n❌ MISSING rows (in expected but NOT in actual):")
+            missing.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(truncate=False)
+
+        if extra_count > 0:
+            print("\n❌ EXTRA rows (in actual but NOT in expected):")
+            extra.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(truncate=False)
+
+        assert missing_count == 0, f"Missing {missing_count} expected rows"
+        assert extra_count == 0, f"Found {extra_count} unexpected rows"
+
+        print("\n✅ PERFECT MATCH! Complete DataFrames are identical.")
+
+
+
+
 
     def _run_aggregation(
             self,
@@ -48,7 +141,6 @@ class TestInitialAggregation(TestAggregationBase):
 
         return aggregation_service.aggregate_findings(spark=spark)
 
-
     def _validate_association_columns(self, df: DataFrame) -> None:
         """Helper: Validate association dataframe has expected columns"""
         expected_columns = [
@@ -60,6 +152,9 @@ class TestInitialAggregation(TestAggregationBase):
         for col in expected_columns:
             assert col in actual_cols, \
                 f"Expected column '{col}' in association results. Found: {actual_cols}"
+
+
+
 
     def _validate_rollup_columns(self, df: DataFrame) -> None:
         """Helper: Validate rollup dataframe has expected columns"""
@@ -75,7 +170,6 @@ class TestInitialAggregation(TestAggregationBase):
         for col in expected_columns:
             assert col in actual_cols, \
                 f"Expected column '{col}' in rollup results. Found: {actual_cols}"
-
 
 
 
@@ -120,19 +214,4 @@ class TestInitialAggregation(TestAggregationBase):
             f"Found {mismatch_count} groups where findings_count doesn't match actual associations"
 
         print("✅ Output consistency validated")
-
-
-
-    def test_initial_aggregation(self, spark, test_config):
-        print("\n=== Running Initial Aggregation Test ===")
-        self.setup_all_temp_views(spark)
-
-        # Execute aggregation - returns AggregationOutput
-        output: AggregationOutput = self._run_aggregation(spark, test_config)
-
-        # Validate data integrity (only if we have data)
-        if output.finding_group_association.count() > 0:
-            self._validate_association_columns(output.finding_group_association)
-            self._validate_rollup_columns(output.finding_group_rollup)
-            self._validate_output_consistency(spark, output)
 

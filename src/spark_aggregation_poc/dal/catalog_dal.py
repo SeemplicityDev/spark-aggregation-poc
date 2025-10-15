@@ -1,10 +1,11 @@
 """Catalog Data Access Layer with strong typing"""
 from typing import Final
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import StructType
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import CatalogDalInterface
-from spark_aggregation_poc.schemas.schemas import ColumnNames, TableNames
+from spark_aggregation_poc.schemas.schemas import ColumnNames, TableNames, Schemas
 
 
 class CatalogDal(CatalogDalInterface):
@@ -51,39 +52,39 @@ class CatalogDal(CatalogDalInterface):
         sql_str: str = f"""
             CREATE OR REPLACE TEMPORARY VIEW {view_name} AS
             SELECT
-                {TableNames.FINDINGS.value}.{ColumnNames.ID} as {ColumnNames.FINDING_ID},
-                {TableNames.FINDINGS.value}.{ColumnNames.PACKAGE_NAME} as {ColumnNames.PACKAGE_NAME},
+                {self.column_with_alias(TableNames.FINDINGS.value, ColumnNames.ID, Schemas.findings_schema())},
+                {self.column_with_alias(TableNames.FINDINGS.value, ColumnNames.PACKAGE_NAME, Schemas.findings_schema())},
                 {TableNames.FINDINGS.value}.{ColumnNames.MAIN_RESOURCE_ID},
                 {TableNames.FINDINGS.value}.{ColumnNames.AGGREGATION_GROUP_ID},
                 {TableNames.FINDINGS.value}.{ColumnNames.SOURCE},
                 {TableNames.FINDINGS.value}.{ColumnNames.RULE_FAMILY},
                 {TableNames.FINDINGS.value}.{ColumnNames.RULE_ID},
-                {TableNames.FINDING_SLA_RULE_CONNECTIONS.value}.{ColumnNames.FINDING_ID} as sla_connection_id,
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.ID} as {ColumnNames.RESOURCE_ID},
+                {self.column_with_alias(TableNames.FINDINGS.value, ColumnNames.FINDING_TYPE_STR, Schemas.findings_schema())},
+                {TableNames.FINDINGS.value}.{ColumnNames.FIX_SUBTYPE},
+                {TableNames.FINDINGS.value}.{ColumnNames.FIX_TYPE},
+                {TableNames.FINDINGS.value}.{ColumnNames.FIX_ID},
+                {self.column_with_alias(TableNames.FINDING_SLA_RULE_CONNECTIONS.value, ColumnNames.FINDING_ID, Schemas.finding_sla_rule_connections_schema())},
+                {self.column_with_alias(TableNames.PLAIN_RESOURCES.value, ColumnNames.ID, Schemas.plain_resources_schema())},
                 {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.CLOUD_ACCOUNT},
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.CLOUD_ACCOUNT_FRIENDLY_NAME} as root_cloud_account_friendly_name,
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.R1_RESOURCE_TYPE} as {ColumnNames.RESOURCE_TYPE},
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.TAGS_VALUES} as {ColumnNames.TAGS_VALUES},
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.TAGS_KEY_VALUES} as {ColumnNames.TAGS_KEY_VALUES},
-                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.CLOUD_PROVIDER} as {ColumnNames.CLOUD_PROVIDER},
-                {TableNames.FINDINGS_SCORES.value}.{ColumnNames.FINDING_ID} as score_finding_id,
+                {self.column_with_alias(TableNames.PLAIN_RESOURCES.value, ColumnNames.CLOUD_ACCOUNT_FRIENDLY_NAME, Schemas.plain_resources_schema())},
+                {self.column_with_alias(TableNames.PLAIN_RESOURCES.value, ColumnNames.R1_RESOURCE_TYPE, Schemas.plain_resources_schema())},
+                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.TAGS_VALUES},
+                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.TAGS_KEY_VALUES},
+                {TableNames.PLAIN_RESOURCES.value}.{ColumnNames.CLOUD_PROVIDER},
+                {self.column_with_alias(TableNames.FINDINGS_SCORES.value, ColumnNames.FINDING_ID, Schemas.findings_scores_schema())},
                 {TableNames.FINDINGS_SCORES.value}.{ColumnNames.SEVERITY},
-                {TableNames.USER_STATUS.value}.{ColumnNames.ID} as user_status_id,
+                {self.column_with_alias(TableNames.USER_STATUS.value, ColumnNames.ID, Schemas.user_status_schema())},
                 {TableNames.USER_STATUS.value}.{ColumnNames.ACTUAL_STATUS_KEY},
-                {TableNames.FINDINGS_ADDITIONAL_DATA.value}.{ColumnNames.FINDING_ID} as additional_data_id,
-                {TableNames.STATUSES.value}.{ColumnNames.KEY} as status_key,
-                {TableNames.AGGREGATION_GROUPS.value}.{ColumnNames.ID} as existing_group_id,
-                {TableNames.AGGREGATION_GROUPS.value}.{ColumnNames.MAIN_FINDING_ID} as existing_main_finding_id,
-                {TableNames.AGGREGATION_GROUPS.value}.{ColumnNames.GROUP_IDENTIFIER} as existing_group_identifier,
+                {self.column_with_alias(TableNames.FINDINGS_ADDITIONAL_DATA.value, ColumnNames.FINDING_ID, Schemas.findings_additional_data_schema())},
+                {self.column_with_alias(TableNames.STATUSES.value, ColumnNames.KEY, Schemas.statuses_schema())},
+                {self.column_with_alias(TableNames.AGGREGATION_GROUPS.value, ColumnNames.ID, Schemas.aggregation_groups_schema())},
+                {self.column_with_alias(TableNames.AGGREGATION_GROUPS.value, ColumnNames.MAIN_FINDING_ID, Schemas.aggregation_groups_schema())},
+                {self.column_with_alias(TableNames.AGGREGATION_GROUPS.value, ColumnNames.GROUP_IDENTIFIER, Schemas.aggregation_groups_schema())},
                 {TableNames.AGGREGATION_GROUPS.value}.{ColumnNames.IS_LOCKED},
-                {TableNames.FINDINGS_INFO.value}.{ColumnNames.ID} as findings_info_id,
-                {TableNames.FINDINGS.value}.{ColumnNames.FINDING_TYPE_STR} as finding_type,
-                {TableNames.FINDINGS.value}.{ColumnNames.FIX_SUBTYPE} as {ColumnNames.FIX_SUBTYPE},
-                {TableNames.STATUSES.value}.{ColumnNames.CATEGORY} as {ColumnNames.CATEGORY},
-                {TableNames.FINDINGS.value}.{ColumnNames.FIX_ID} as {ColumnNames.FIX_ID},
+                {self.column_with_alias(TableNames.FINDINGS_INFO.value, ColumnNames.ID, Schemas.findings_info_schema())},
+                {TableNames.STATUSES.value}.{ColumnNames.CATEGORY},
                 {TableNames.FINDINGS_ADDITIONAL_DATA.value}.{ColumnNames.CVE}[1] as {ColumnNames.CVE},
-                {TableNames.FINDINGS.value}.{ColumnNames.FIX_TYPE} as {ColumnNames.FIX_TYPE},
-                {TableNames.SELECTION_RULES.value}.{ColumnNames.SCOPE_GROUP} as {ColumnNames.SCOPE_GROUP}
+                {TableNames.SELECTION_RULES.value}.{ColumnNames.SCOPE_GROUP}
             FROM {self.catalog_table_prefix}{TableNames.FINDINGS.value}
             LEFT OUTER JOIN {self.catalog_table_prefix}{TableNames.FINDING_SLA_RULE_CONNECTIONS.value} ON
                 {TableNames.FINDINGS.value}.{ColumnNames.ID} = {TableNames.FINDING_SLA_RULE_CONNECTIONS.value}.{ColumnNames.FINDING_ID}
@@ -122,6 +123,11 @@ class CatalogDal(CatalogDalInterface):
         print(f"📊 Base findings view contains {row_count:,} rows")
 
         return df
+
+    def column_with_alias(self, table: str, col_name: str, schema: StructType) -> str:
+        alias = Schemas.get_alias_for_field(schema, col_name)
+        table_col = f"{table}.{col_name}"
+        return f"{table_col} as {alias}" if alias != col_name else table_col
 
     def save_to_catalog(self, df: DataFrame, table_name: str) -> None:
         """

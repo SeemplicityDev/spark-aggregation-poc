@@ -3,7 +3,7 @@ Centralized schema definitions for all dataframes.
 No schema inference - all schemas explicitly defined.
 """
 from enum import Enum
-from typing import Dict
+from typing import Dict, Union
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType,
     BooleanType, DoubleType, ArrayType, LongType
@@ -154,15 +154,22 @@ class TableNames(str, Enum):
     FINDING_GROUP_ROLLUP = "finding_group_rollup"
     BASE_FINDINGS_VIEW = "base_findings_view"
 
+class MetadataKeys:
+    ID_COLUMN = "id_column"
+    ALIAS = "alias"
 
 class Schemas:
     """Centralized registry of all schemas"""
 
-    @staticmethod
-    def findings_schema() -> StructType:
+    @classmethod
+    def findings_schema(cls) -> StructType:
         """Schema for findings table"""
         return StructType([
-            StructField(ColumnNames.ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "finding_id"
+                        }),
             StructField(ColumnNames.DATASOURCE_ID, IntegerType(), nullable=True),
             StructField(ColumnNames.DATASOURCE_DEFINITION_ID, IntegerType(), nullable=True),
             StructField(ColumnNames.TITLE, StringType(), nullable=True),
@@ -187,7 +194,8 @@ class Schemas:
             StructField(ColumnNames.SCAN_ID, StringType(), nullable=True),
             StructField(ColumnNames.EDITABLE, BooleanType(), nullable=True),
             StructField(ColumnNames.REOPEN_DATE, StringType(), nullable=True),
-            StructField(ColumnNames.FINDING_TYPE_STR, StringType(), nullable=True),
+            StructField(ColumnNames.FINDING_TYPE_STR, StringType(), nullable=True,
+                        metadata={MetadataKeys.ALIAS: "finding_type"}),
             StructField(ColumnNames.FIX_ID, StringType(), nullable=True),
             StructField(ColumnNames.FIX_VENDOR_ID, StringType(), nullable=True),
             StructField(ColumnNames.FIX_TYPE, StringType(), nullable=True),
@@ -196,12 +204,17 @@ class Schemas:
             StructField(ColumnNames.RULE_FAMILY, StringType(), nullable=True),
         ])
 
-    @staticmethod
-    def plain_resources_schema() -> StructType:
+    @classmethod
+    def plain_resources_schema(cls) -> StructType:
         """Schema for plain_resources table"""
         return StructType([
-            StructField(ColumnNames.ID, IntegerType(), nullable=False),
-            StructField(ColumnNames.R1_RESOURCE_TYPE, StringType(), nullable=True),
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "resource_id"  # Used as 'resource_id' in output
+                        }),
+            StructField(ColumnNames.R1_RESOURCE_TYPE, StringType(), nullable=True,
+                        metadata={MetadataKeys.ALIAS: "resource_type"}),
             StructField(ColumnNames.R1_RESOURCE_NAME, StringType(), nullable=True),
             StructField(ColumnNames.R1_RESOURCE_ID, StringType(), nullable=True),
             StructField(ColumnNames.R2_RESOURCE_TYPE, StringType(), nullable=True),
@@ -215,7 +228,8 @@ class Schemas:
             StructField(ColumnNames.R4_RESOURCE_ID, StringType(), nullable=True),
             StructField(ColumnNames.CLOUD_PROVIDER, StringType(), nullable=True),
             StructField(ColumnNames.CLOUD_ACCOUNT, StringType(), nullable=True),
-            StructField(ColumnNames.CLOUD_ACCOUNT_FRIENDLY_NAME, StringType(), nullable=True),
+            StructField(ColumnNames.CLOUD_ACCOUNT_FRIENDLY_NAME, StringType(), nullable=True,
+                        metadata={MetadataKeys.ALIAS: "root_cloud_account_friendly_name"}),
             StructField(ColumnNames.TAGS_VALUES, StringType(), nullable=True),
             StructField(ColumnNames.SEEM_TAGS_VALUES, StringType(), nullable=True),
             StructField(ColumnNames.TAGS_KEY_VALUES, StringType(), nullable=True),
@@ -224,11 +238,15 @@ class Schemas:
             StructField(ColumnNames.FIRST_SEEN, StringType(), nullable=True),
         ])
 
-    @staticmethod
-    def findings_scores_schema() -> StructType:
+    @classmethod
+    def findings_scores_schema(cls) -> StructType:
         """Schema for findings_scores table"""
         return StructType([
-            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "score_finding_id"
+                        }),
             StructField(ColumnNames.ORIGINAL_SCORE, StringType(), nullable=True),
             StructField(ColumnNames.NORMALIZED_SCORE, DoubleType(), nullable=True),
             StructField(ColumnNames.SCORING_RULE_ID, IntegerType(), nullable=True),
@@ -241,22 +259,30 @@ class Schemas:
             StructField(ColumnNames.UPDATED_TIME, StringType(), nullable=True),
         ])
 
-    @staticmethod
-    def user_status_schema() -> StructType:
+    @classmethod
+    def user_status_schema(cls) -> StructType:
         """Schema for user_status table"""
         return StructType([
-            StructField(ColumnNames.ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "user_status_id"
+                        }),
             StructField(ColumnNames.SYSTEM_STATUS_KEY, IntegerType(), nullable=True),
             StructField(ColumnNames.USER_STATUS_KEY, IntegerType(), nullable=True),
             StructField(ColumnNames.ACTUAL_STATUS_KEY, IntegerType(), nullable=True),
             StructField(ColumnNames.UPDATED_TIME, StringType(), nullable=True),
         ])
 
-    @staticmethod
-    def statuses_schema() -> StructType:
+    @classmethod
+    def statuses_schema(cls) -> StructType:
         """Schema for statuses table"""
         return StructType([
-            StructField(ColumnNames.KEY, IntegerType(), nullable=False),
+            StructField(ColumnNames.KEY, IntegerType(), nullable=False,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "status_key"
+                        }),
             StructField(ColumnNames.CATEGORY, StringType(), nullable=True),
             StructField(ColumnNames.SUB_STATUS, StringType(), nullable=True),
             StructField(ColumnNames.TYPE, StringType(), nullable=True),
@@ -269,56 +295,72 @@ class Schemas:
             StructField(ColumnNames.UPDATED_BY_USER_ID, IntegerType(), nullable=True),
         ])
 
-    @staticmethod
-    def aggregation_groups_schema() -> StructType:
+    @classmethod
+    def aggregation_groups_schema(cls) -> StructType:
         """Schema for aggregation_groups table"""
         return StructType([
-            StructField(ColumnNames.ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.ID, IntegerType(), nullable=True,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "existing_group_id"
+                        }),
             StructField(ColumnNames.MAIN_FINDING_ID, IntegerType(), nullable=True),
             StructField(ColumnNames.GROUP_IDENTIFIER, StringType(), nullable=True),
             StructField(ColumnNames.IS_LOCKED, BooleanType(), nullable=True),
         ])
 
-    @staticmethod
-    def finding_sla_rule_connections_schema() -> StructType:
+    @classmethod
+    def finding_sla_rule_connections_schema(cls) -> StructType:
         """Schema for finding_sla_rule_connections table"""
         return StructType([
-            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=True,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "sla_connection_id"
+                        }),
         ])
 
-    @staticmethod
-    def findings_additional_data_schema() -> StructType:
+    @classmethod
+    def findings_additional_data_schema(cls) -> StructType:
         """Schema for findings_additional_data table"""
         return StructType([
-            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=True,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "additional_data_id"
+                        }),
             StructField(ColumnNames.CVE, ArrayType(StringType()), nullable=True),
         ])
 
-    @staticmethod
-    def findings_info_schema() -> StructType:
+    @classmethod
+    def findings_info_schema(cls) -> StructType:
         """Schema for findings_info table"""
         return StructType([
-            StructField(ColumnNames.ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.ID, IntegerType(), nullable=True,
+                        metadata={
+                            MetadataKeys.ID_COLUMN: True,
+                            MetadataKeys.ALIAS: "findings_info_id"
+                        }),
         ])
 
-    @staticmethod
-    def scoring_rules_schema() -> StructType:
+    @classmethod
+    def scoring_rules_schema(cls) -> StructType:
         """Schema for scoring_rules table"""
         return StructType([
             StructField(ColumnNames.ID, IntegerType(), nullable=True),
             StructField(ColumnNames.SELECTION_RULE_ID, IntegerType(), nullable=True),
         ])
 
-    @staticmethod
-    def selection_rules_schema() -> StructType:
+    @classmethod
+    def selection_rules_schema(cls) -> StructType:
         """Schema for selection_rules table"""
         return StructType([
             StructField(ColumnNames.ID, IntegerType(), nullable=True),
             StructField(ColumnNames.SCOPE_GROUP, IntegerType(), nullable=True),
         ])
 
-    @staticmethod
-    def aggregation_rules_schema() -> StructType:
+    @classmethod
+    def aggregation_rules_schema(cls) -> StructType:
         """Schema for aggregation_rules table"""
         return StructType([
             StructField(ColumnNames.ID, IntegerType(), nullable=False),
@@ -340,8 +382,8 @@ class Schemas:
             StructField(ColumnNames.AGGREGATION_RULE_DEFINITION_ID, IntegerType(), nullable=True),
         ])
 
-    @staticmethod
-    def finding_group_association_schema() -> StructType:
+    @classmethod
+    def finding_group_association_schema(cls) -> StructType:
         """Schema for finding_group_association output"""
         return StructType([
             StructField(ColumnNames.GROUP_IDENTIFIER, StringType(), nullable=False),
@@ -349,8 +391,8 @@ class Schemas:
             StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False),
         ])
 
-    @staticmethod
-    def finding_group_rollup_base_schema() -> StructType:
+    @classmethod
+    def finding_group_rollup_base_schema(cls) -> StructType:
         """Base schema for finding_group_rollup (without dynamic group_by columns)"""
         return StructType([
             StructField(ColumnNames.GROUP_IDENTIFIER, StringType(), nullable=False),
@@ -361,40 +403,49 @@ class Schemas:
             StructField(ColumnNames.RULE_NUMBER, IntegerType(), nullable=False),
         ])
 
-    @staticmethod
-    def get_schema_for_table(table_name: TableNames) -> StructType:
-        """Get schema for a given table name"""
-        schema_map: Dict[TableNames, StructType] = {
-            TableNames.FINDINGS: Schemas.findings_schema(),
-            TableNames.PLAIN_RESOURCES: Schemas.plain_resources_schema(),
-            TableNames.FINDINGS_SCORES: Schemas.findings_scores_schema(),
-            TableNames.USER_STATUS: Schemas.user_status_schema(),
-            TableNames.STATUSES: Schemas.statuses_schema(),
-            TableNames.AGGREGATION_GROUPS: Schemas.aggregation_groups_schema(),
-            TableNames.FINDING_SLA_RULE_CONNECTIONS: Schemas.finding_sla_rule_connections_schema(),
-            TableNames.FINDINGS_ADDITIONAL_DATA: Schemas.findings_additional_data_schema(),
-            TableNames.FINDINGS_INFO: Schemas.findings_info_schema(),
-            TableNames.SCORING_RULES: Schemas.scoring_rules_schema(),
-            TableNames.SELECTION_RULES: Schemas.selection_rules_schema(),
-            TableNames.AGGREGATION_RULES: Schemas.aggregation_rules_schema(),
-            TableNames.FINDING_GROUP_ASSOCIATION: Schemas.finding_group_association_schema(),
-            TableNames.FINDING_GROUP_ROLLUP: Schemas.finding_group_rollup_base_schema(),
+    @classmethod
+    def get_schema_for_table(cls, table_name: Union[str, TableNames]) -> StructType:
+        if isinstance(table_name, TableNames):
+            table_name = table_name.value
+
+        schema_map: Dict[str, StructType] = {
+            TableNames.FINDINGS.value: Schemas.findings_schema(),
+            TableNames.PLAIN_RESOURCES.value: Schemas.plain_resources_schema(),
+            TableNames.FINDINGS_SCORES.value: Schemas.findings_scores_schema(),
+            TableNames.USER_STATUS.value: Schemas.user_status_schema(),
+            TableNames.STATUSES.value: Schemas.statuses_schema(),
+            TableNames.AGGREGATION_GROUPS.value: Schemas.aggregation_groups_schema(),
+            TableNames.FINDING_SLA_RULE_CONNECTIONS.value: Schemas.finding_sla_rule_connections_schema(),
+            TableNames.FINDINGS_ADDITIONAL_DATA.value: Schemas.findings_additional_data_schema(),
+            TableNames.FINDINGS_INFO.value: Schemas.findings_info_schema(),
+            TableNames.SCORING_RULES.value: Schemas.scoring_rules_schema(),
+            TableNames.SELECTION_RULES.value: Schemas.selection_rules_schema(),
+            TableNames.AGGREGATION_RULES.value: Schemas.aggregation_rules_schema(),
+            TableNames.FINDING_GROUP_ASSOCIATION.value: Schemas.finding_group_association_schema(),
+            TableNames.FINDING_GROUP_ROLLUP.value: Schemas.finding_group_rollup_base_schema(),
         }
         return schema_map[table_name]
 
+
     @classmethod
-    def get_id_column_for_table(cls, table_name: str) -> str:
-        """Get the ID column name for each table using schema constants"""
-        id_columns = {
-            TableNames.FINDINGS.value: ColumnNames.ID,
-            TableNames.FINDINGS_SCORES.value: ColumnNames.FINDING_ID,
-            TableNames.USER_STATUS.value: ColumnNames.ID,
-            TableNames.FINDINGS_INFO.value: ColumnNames.ID,
-            TableNames.FINDINGS_ADDITIONAL_DATA.value: ColumnNames.FINDING_ID,
-            TableNames.FINDING_SLA_RULE_CONNECTIONS.value: ColumnNames.FINDING_ID,
-            TableNames.PLAIN_RESOURCES.value: ColumnNames.ID,
-            TableNames.STATUSES.value: ColumnNames.KEY,  # Different for statuses
-            TableNames.AGGREGATION_GROUPS.value: ColumnNames.ID,
-            "aggregation_rules_findings_excluder": ColumnNames.FINDING_ID  # Note: No TableNames constant for this yet
-        }
-        return id_columns.get(table_name, ColumnNames.ID)
+    def get_id_column_for_table(cls, table_name: Union[str, TableNames]) -> str:
+        schema = Schemas.get_schema_for_table(table_name)
+
+        # Find field with ID_COLUMN metadata
+        for field in schema.fields:
+            if field.metadata.get(MetadataKeys.ID_COLUMN, False):
+                return field.name
+
+        # Fallback to "id" if no metadata found
+        return ColumnNames.ID
+
+    @classmethod
+    def get_alias_for_field(cls, schema: StructType, field_name: str) -> str:
+        """
+        Get the alias for a field from its metadata.
+        Returns the field name itself if no alias is defined.
+        """
+        for field in schema.fields:
+            if field.name == field_name:
+                return field.metadata.get(MetadataKeys.ALIAS, field_name)
+        return field_name

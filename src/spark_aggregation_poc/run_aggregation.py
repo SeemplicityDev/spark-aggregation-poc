@@ -40,7 +40,7 @@ def run_aggregation(spark: SparkSession, config: Config = None):
 
 
 def print_tables_from_catalog(config, spark):
-    print("\n=== Reading Association table and Aggregation table  ===")
+    print("\n=== Reading Association table and Aggregation table from Catalog ===")
     df = spark.table(f"{config.catalog_table_prefix}finding_group_association")
     df.show()
     df = spark.table(f"{config.catalog_table_prefix}finding_group_rollup")

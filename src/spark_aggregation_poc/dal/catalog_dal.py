@@ -111,6 +111,14 @@ class CatalogDal(CatalogDalInterface):
             OR {TableNames.FINDINGS.value}.{ColumnNames.AGGREGATION_GROUP_ID} is null)
         """
 
+        # todo -> also join the following tables:
+        #  resource_to_scopes,
+        #  scope_groups,
+        #  finding_ticket_associations,
+        #  tickets,
+        #  user_sla
+
+
         # Execute view creation
         spark.sql(sql_str)
         print(f"✅ Created temporary view: {view_name}")

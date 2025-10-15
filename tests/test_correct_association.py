@@ -144,14 +144,6 @@ class TestCorrectAssociation(TestAggregationBase):
         """Create findings test data using SchemaRegistry"""
         schema = Schemas.findings_schema()
 
-        # Schema has 32 fields in this order:
-        # id, datasource_id, datasource_definition_id, title, source, finding_id_str,
-        # original_finding_id, created_time, discovered_time, due_date, last_collected_time,
-        # last_reported_time, original_status, time_to_remediate, category_field, sub_category,
-        # rule_id, resource_reported_not_exist, aggregation_group_id, main_resource_id,
-        # package_name, image_id, scan_id, editable, reopen_date, finding_type_str,
-        # fix_id, fix_vendor_id, fix_type, fix_subtype, rule_type, rule_family
-
         findings_data = [
             # 32 fields matching schema exactly
             (
@@ -322,7 +314,7 @@ class TestCorrectAssociation(TestAggregationBase):
         schema = Schemas.findings_scores_schema()
 
         findings_scores_data = [
-            (finding_id, "1", 1.0, None, None, None, None, None, 1.0, 3, None)
+            (finding_id, None, None, None, None, None, None, None, None, 3, None)
             for finding_id in range(1, 11)
         ]
 
@@ -335,7 +327,7 @@ class TestCorrectAssociation(TestAggregationBase):
         schema = Schemas.user_status_schema()
 
         user_status_data = [
-            (i, 10000, None, 10000, None)
+            (i, None, None, 10000, None)
             for i in range(1, 11)
         ]
 

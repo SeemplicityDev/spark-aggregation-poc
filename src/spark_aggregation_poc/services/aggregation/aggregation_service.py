@@ -170,15 +170,11 @@ class AggregationService(FindingsAggregatorInterface):
                 *all_rollups
             ).withColumn(
                 ColumnNames.GROUP_IDENTIFIER,
-                md5(
-                    concat_ws(
-                        "-",
-                        lit(str(rule_idx)),
-                        *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns]
-                    )
-                )
-            ).withColumn("readable_group_id",
-                concat_ws("_", *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns]))
+                md5(concat_ws("-",lit(str(rule_idx)), *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns]))
+            ).withColumn(
+                ColumnNames.GROUP_IDENTIFIER_READABLE,
+                concat_ws("_", *[coalesce(spark_col(column).cast("string"), lit("null")) for column in valid_columns])
+            ).drop(*valid_columns) # Drop the groupBy columns
 
             print(f"✅ Rule {rule_idx} - Successfully created rollup with schema: {df_finding_group_rollup.columns}")
 
@@ -197,7 +193,7 @@ class AggregationService(FindingsAggregatorInterface):
         """Create association using ColumnNames constants"""
         result: DataFrame = df.select(
             spark_col(ColumnNames.GROUP_IDENTIFIER).alias(ColumnNames.GROUP_IDENTIFIER),
-            spark_col("readable_group_id").alias("readable_group_id"),
+            spark_col(ColumnNames.GROUP_IDENTIFIER_READABLE).alias(ColumnNames.GROUP_IDENTIFIER_READABLE),
             explode(ColumnNames.FINDING_IDS).alias(ColumnNames.FINDING_ID)
         )
         return result

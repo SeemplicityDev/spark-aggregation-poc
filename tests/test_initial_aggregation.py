@@ -1,7 +1,10 @@
 """Tests for initial aggregation functionality using SchemaRegistry and AggregationOutput"""
+import hashlib
+
 import pytest
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import sum as spark_sum, size
+from pyspark.sql.functions import sum as spark_sum, size, md5
+from pyspark.sql.types import StructType
 
 from spark_aggregation_poc.factory.factory import Factory
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface
@@ -40,8 +43,8 @@ class TestInitialAggregation(TestAggregationBase):
 
         # Validate data integrity (only if we have data)
         if output.finding_group_association.count() > 0:
-            self._validate_association_columns(output.finding_group_association)
-            self._validate_rollup_columns(output.finding_group_rollup)
+            self._validate_columns_schema(output.finding_group_association, set(SchemaRegistry.get_schema_for_table(TableNames.FINDING_GROUP_ASSOCIATION).names))
+            self._validate_columns_schema(output.finding_group_rollup, set(SchemaRegistry.get_schema_for_table(TableNames.FINDING_GROUP_ROLLUP).names))
             self._validate_output_consistency(spark, output)
             self._validate_correct_group_association(spark, output)
 
@@ -61,30 +64,31 @@ class TestInitialAggregation(TestAggregationBase):
         # Hardcoded expected DataFrame with exact group_ids
         # group_id format: {group_by_columns joined by underscore}
         expected_data = [
-            # Rule 0: Group by package_name only
-            ("pkg0", 1),
-            ("pkg1", 2),
-            ("pkg1", 3),
-            ("pkg2", 4),
-            ("pkg2", 5),
-            ("pkg2", 6),
-            ("pkg3", 7),
-            ("pkg3", 8),
-            ("pkg3", 9),
-            ("pkg3", 10),
+            # Rule 0 (rule_idx=0): Group by package_name only
+            (self.calculate_group_id(0, "pkg0"), "pkg0", 1),
+            (self.calculate_group_id(0, "pkg1"), "pkg1", 2),
+            (self.calculate_group_id(0, "pkg1"), "pkg1", 3),
+            (self.calculate_group_id(0, "pkg2"), "pkg2", 4),
+            (self.calculate_group_id(0, "pkg2"), "pkg2", 5),
+            (self.calculate_group_id(0, "pkg2"), "pkg2", 6),
+            (self.calculate_group_id(0, "pkg3"), "pkg3", 7),
+            (self.calculate_group_id(0, "pkg3"), "pkg3", 8),
+            (self.calculate_group_id(0, "pkg3"), "pkg3", 9),
+            (self.calculate_group_id(0, "pkg3"), "pkg3", 10),
 
-            # Rule 1: Group by package_name + cloud_account
-            ("pkg0_koko_account", 1),
-            ("pkg1_koko_account", 2),
-            ("pkg1_koko_account", 3),
-            ("pkg2_koko_account", 4),
-            ("pkg2_koko_account", 5),
-            ("pkg2_koko_account", 6),
-            ("pkg3_koko_account", 7),
-            ("pkg3_koko_account", 8),
-            ("pkg3_koko_account", 9),
-            ("pkg3_koko_account", 10),
+            # Rule 1 (rule_idx=1): Group by package_name + cloud_account
+            (self.calculate_group_id(1, "pkg0-koko_account"), "pkg0_koko_account", 1),
+            (self.calculate_group_id(1, "pkg1-koko_account"), "pkg1_koko_account", 2),
+            (self.calculate_group_id(1, "pkg1-koko_account"), "pkg1_koko_account", 3),
+            (self.calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 4),
+            (self.calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 5),
+            (self.calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 6),
+            (self.calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 7),
+            (self.calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 8),
+            (self.calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 9),
+            (self.calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 10),
         ]
+
 
         # Create expected DataFrame with exact same schema
         expected_df = spark.createDataFrame(
@@ -96,10 +100,10 @@ class TestInitialAggregation(TestAggregationBase):
         print(f"📊 Actual: {actual_df.count()} rows")
 
         print("\n📋 Expected DataFrame:")
-        expected_df.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(50, truncate=False)
+        expected_df.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(50, truncate=False)
 
         print("\n📋 Actual DataFrame:")
-        actual_df.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(50, truncate=False)
+        actual_df.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(50, truncate=False)
 
         # Direct subtract - comparing COMPLETE DataFrames (both columns)!
         missing = expected_df.subtract(actual_df)
@@ -110,11 +114,11 @@ class TestInitialAggregation(TestAggregationBase):
 
         if missing_count > 0:
             print("\n❌ MISSING rows (in expected but NOT in actual):")
-            missing.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(truncate=False)
+            missing.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(truncate=False)
 
         if extra_count > 0:
             print("\n❌ EXTRA rows (in actual but NOT in expected):")
-            extra.orderBy(ColumnNames.GROUP_ID, ColumnNames.FINDING_ID).show(truncate=False)
+            extra.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(truncate=False)
 
         assert missing_count == 0, f"Missing {missing_count} expected rows"
         assert extra_count == 0, f"Found {extra_count} unexpected rows"
@@ -122,6 +126,15 @@ class TestInitialAggregation(TestAggregationBase):
         print("\n✅ PERFECT MATCH! Complete DataFrames are identical.")
 
 
+    def calculate_group_id(self, rule_idx: int, *values: str) -> str:
+        """
+        Calculate group_id the same way as the aggregation service.
+        Formula: md5(concat_ws("-", rule_idx, value1, value2, ...))
+        """
+        # Join values with "-" separator
+        concatenated = "-".join([str(rule_idx)] + list(values))
+        # Calculate MD5 hash
+        return hashlib.md5(concatenated.encode()).hexdigest()
 
 
 
@@ -141,35 +154,11 @@ class TestInitialAggregation(TestAggregationBase):
 
         return aggregation_service.aggregate_findings(spark=spark)
 
-    def _validate_association_columns(self, df: DataFrame) -> None:
-        """Helper: Validate association dataframe has expected columns"""
-        expected_columns = [
-            ColumnNames.GROUP_ID,
-            ColumnNames.FINDING_ID
-        ]
+
+    def _validate_columns_schema(self, df: DataFrame, expected_columns: set[str]) -> None:
         actual_cols = set(df.columns)
 
-        for col in expected_columns:
-            assert col in actual_cols, \
-                f"Expected column '{col}' in association results. Found: {actual_cols}"
-
-
-
-
-    def _validate_rollup_columns(self, df: DataFrame) -> None:
-        """Helper: Validate rollup dataframe has expected columns"""
-        expected_columns = [
-            ColumnNames.GROUP_ID,
-            ColumnNames.FINDING_IDS,
-            ColumnNames.FINDINGS_COUNT,
-            ColumnNames.CLOUD_ACCOUNTS,
-            ColumnNames.RULE_NUMBER
-        ]
-        actual_cols = set(df.columns)
-
-        for col in expected_columns:
-            assert col in actual_cols, \
-                f"Expected column '{col}' in rollup results. Found: {actual_cols}"
+        assert actual_cols == expected_columns
 
 
 
@@ -193,13 +182,13 @@ class TestInitialAggregation(TestAggregationBase):
 
         # Verify each group's findings_count matches actual associations
         mismatch_query = f"""
-            SELECT r.{ColumnNames.GROUP_ID}, 
+            SELECT r.{ColumnNames.GROUP_IDENTIFIER}, 
                    r.{ColumnNames.FINDINGS_COUNT} as expected_count,
                    COUNT(a.{ColumnNames.FINDING_ID}) as actual_count
             FROM temp_rollup r
             LEFT JOIN temp_association a 
-                ON r.{ColumnNames.GROUP_ID} = a.{ColumnNames.GROUP_ID}
-            GROUP BY r.{ColumnNames.GROUP_ID}, r.{ColumnNames.FINDINGS_COUNT}
+                ON r.{ColumnNames.GROUP_IDENTIFIER} = a.{ColumnNames.GROUP_IDENTIFIER}
+            GROUP BY r.{ColumnNames.GROUP_IDENTIFIER}, r.{ColumnNames.FINDINGS_COUNT}
             HAVING r.{ColumnNames.FINDINGS_COUNT} != COUNT(a.{ColumnNames.FINDING_ID})
         """
 

@@ -104,6 +104,7 @@ class ColumnNames:
     # Aggregation output columns
     GROUP_ID = "group_id"
     GROUP_IDENTIFIER = "group_identifier"
+    GROUP_IDENTIFIER_READABLE = "group_identifier_readable"
     FINDING_IDS = "finding_ids"
     CLOUD_ACCOUNTS = "cloud_accounts"
     FINDINGS_COUNT = "findings_count"
@@ -343,7 +344,8 @@ class SchemaRegistry:
     def finding_group_association_schema() -> StructType:
         """Schema for finding_group_association output"""
         return StructType([
-            StructField(ColumnNames.GROUP_ID, StringType(), nullable=False),
+            StructField(ColumnNames.GROUP_IDENTIFIER, StringType(), nullable=False),
+            StructField(ColumnNames.GROUP_IDENTIFIER_READABLE, StringType(), nullable=False),
             StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False),
         ])
 
@@ -351,7 +353,8 @@ class SchemaRegistry:
     def finding_group_rollup_base_schema() -> StructType:
         """Base schema for finding_group_rollup (without dynamic group_by columns)"""
         return StructType([
-            StructField(ColumnNames.GROUP_ID, StringType(), nullable=False),
+            StructField(ColumnNames.GROUP_IDENTIFIER, StringType(), nullable=False),
+            StructField(ColumnNames.GROUP_IDENTIFIER_READABLE, StringType(), nullable=False),
             StructField(ColumnNames.FINDING_IDS, ArrayType(IntegerType()), nullable=False),
             StructField(ColumnNames.CLOUD_ACCOUNTS, ArrayType(StringType()), nullable=False),
             StructField(ColumnNames.FINDINGS_COUNT, LongType(), nullable=False),

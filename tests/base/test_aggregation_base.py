@@ -1,9 +1,16 @@
+import hashlib
 import json
 import os
+from abc import abstractmethod
+from typing import final
 from unittest.mock import Mock
 
 import pytest
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, DataFrame
+
+from spark_aggregation_poc.factory.factory import Factory
+from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface
+from spark_aggregation_poc.models.aggregation_output import AggregationOutput
 from spark_aggregation_poc.schemas.schema_registry import (
     SchemaRegistry, ColumnNames, TableNames
 )
@@ -48,257 +55,69 @@ class TestAggregationBase:
         )
 
     @pytest.fixture(scope="class", autouse=True)
-    def validated_test_environment(self, spark):
-        """
-        Fixture that runs automatically once per test class.
-        Sets up test data and runs all validation checks.
+    def setup_all_temp_views(self, spark):
+        """Create all temporary views with hardcoded data using SchemaRegistry"""
+        print("=== Creating Temporary Views with Explicit Schemas ===")
 
-        Args:
-            spark: SparkSession fixture
+        self.create_findings_data(spark)
+        print(f"✅ {TableNames.FINDINGS.value}: 10 rows")
 
-        Note:
-            - scope="class" means it runs once for the entire test class
-            - autouse=True means it runs automatically without being explicitly requested
-        """
-        print("\n" + "=" * 70)
-        print("🔧 SETUP: Running base class setup and validation (once per class)")
-        print("=" * 70)
+        self.create_plain_resources_data(spark)
+        print(f"✅ {TableNames.PLAIN_RESOURCES.value}: 4 rows")
 
-        # Setup all temp views
-        self.setup_all_temp_views(spark)
+        self.create_findings_scores_data(spark)
+        print(f"✅ {TableNames.FINDINGS_SCORES.value}: 10 rows")
 
-        # Run all validation checks
-        print("\n📋 Running base validation checks...")
+        self.create_user_status_data(spark)
+        print(f"✅ {TableNames.USER_STATUS.value}: 10 rows")
 
-        try:
-            self._validate_basic_data_creation(spark)
-            self._validate_findings_by_package(spark)
-            self._validate_join_findings_with_resources(spark)
+        self.create_statuses_data(spark)
+        print(f"✅ {TableNames.STATUSES.value}: 5 rows")
 
-            print("\n✅ All base validation checks passed!")
-            print("=" * 70)
+        self.create_aggregation_groups_data(spark)
+        print(f"✅ {TableNames.AGGREGATION_GROUPS.value}: 0 rows (empty)")
 
-        except AssertionError as e:
-            print(f"\n❌ Base validation failed: {e}")
-            print("=" * 70)
-            raise
+        self.create_finding_sla_rule_connections_data(spark)
+        print(f"✅ {TableNames.FINDING_SLA_RULE_CONNECTIONS.value}: 0 rows (empty)")
 
-        # Yield control to tests
-        yield
+        self.create_findings_additional_data(spark)
+        print(f"✅ {TableNames.FINDINGS_ADDITIONAL_DATA.value}: 0 rows (empty)")
 
-        # Cleanup (runs after all tests in class complete)
-        print("\n🧹 TEARDOWN: Cleaning up test data")
+        self.create_findings_info_data(spark)
+        print(f"✅ {TableNames.FINDINGS_INFO.value}: 0 rows (empty)")
 
+        self.create_scoring_rules_data(spark)
+        print(f"✅ {TableNames.SCORING_RULES.value}: 0 rows (empty)")
 
-    def _validate_basic_data_creation(self, spark):
-        """Validate all temp views are created correctly (runs automatically)"""
-        print("  🔍 Validating basic data creation...")
+        self.create_selection_rules_data(spark)
+        print(f"✅ {TableNames.SELECTION_RULES.value}: 0 rows (empty)")
 
-        findings_df = spark.table(TableNames.FINDINGS.value)
-        assert findings_df.count() == 10, "Expected 10 findings"
+        # self.create_aggregation_rules_data(spark)
+        # print(f"✅ {TableNames.AGGREGATION_RULES.value}: 2 rows")
 
-        resources_df = spark.table(TableNames.PLAIN_RESOURCES.value)
-        assert resources_df.count() == 4, "Expected 4 plain_resources"
+        print("\n=== All Temporary Views Created with SchemaRegistry ===")
 
-        rules_df = spark.table(TableNames.AGGREGATION_RULES.value)
-        assert rules_df.count() == 2, "Expected 2 aggregation_rules"
+    @abstractmethod
+    def run_aggregation(self,spark: SparkSession,test_config) -> AggregationOutput:
+       pass
 
-        print("  ✅ Basic data creation validated")
-
-    def _validate_findings_by_package(self, spark):
-        """Validate findings grouped by package_name (runs automatically)"""
-        print("  🔍 Validating findings by package...")
-
-        findings_df = spark.sql(f"""
-               SELECT {ColumnNames.PACKAGE_NAME}, COUNT(*) as count
-               FROM {TableNames.FINDINGS.value}
-               GROUP BY {ColumnNames.PACKAGE_NAME}
-               ORDER BY {ColumnNames.PACKAGE_NAME}
-           """)
-
-        results = findings_df.collect()
-        assert len(results) == 4, "Expected 4 distinct packages"
-        assert results[0][ColumnNames.PACKAGE_NAME] == "pkg0" and results[0]["count"] == 1
-        assert results[1][ColumnNames.PACKAGE_NAME] == "pkg1" and results[1]["count"] == 2
-        assert results[2][ColumnNames.PACKAGE_NAME] == "pkg2" and results[2]["count"] == 3
-        assert results[3][ColumnNames.PACKAGE_NAME] == "pkg3" and results[3]["count"] == 4
-
-        print("  ✅ Findings by package validated")
-
-    def _validate_join_findings_with_resources(self, spark):
-        """Validate join using ColumnNames constants (runs automatically)"""
-        print("  🔍 Validating findings-resources join...")
-
-        joined_df = spark.sql(f"""
-               SELECT f.{ColumnNames.ID}, f.{ColumnNames.PACKAGE_NAME}, 
-                      p.{ColumnNames.CLOUD_ACCOUNT}, p.{ColumnNames.CLOUD_PROVIDER}
-               FROM {TableNames.FINDINGS.value} f
-               JOIN {TableNames.PLAIN_RESOURCES.value} p 
-                   ON f.{ColumnNames.MAIN_RESOURCE_ID} = p.{ColumnNames.ID}
-               ORDER BY f.{ColumnNames.ID}
-           """)
-
-        assert joined_df.count() == 10, "Expected 10 joined records"
-
-        first_row = joined_df.first()
-        assert first_row[ColumnNames.CLOUD_ACCOUNT] == "koko_account"
-        assert first_row[ColumnNames.CLOUD_PROVIDER] == "koko_provider"
-
-        print("  ✅ Join validation passed")
 
     def create_findings_data(self, spark):
-        """Create findings test data using SchemaRegistry"""
         schema = SchemaRegistry.findings_schema()
 
-        # Schema has 32 fields in this order:
-        # id, datasource_id, datasource_definition_id, title, source, finding_id_str,
-        # original_finding_id, created_time, discovered_time, due_date, last_collected_time,
-        # last_reported_time, original_status, time_to_remediate, category_field, sub_category,
-        # rule_id, resource_reported_not_exist, aggregation_group_id, main_resource_id,
-        # package_name, image_id, scan_id, editable, reopen_date, finding_type_str,
-        # fix_id, fix_vendor_id, fix_type, fix_subtype, rule_type, rule_family
-
-        findings_data = [
-            # 32 fields matching schema exactly
-            (
-                1,  # id
-                0,  # datasource_id
-                0,  # datasource_definition_id
-                "9d50933c11ca4ff69c5fd8401c8982d2",  # title
-                "koko",  # source
-                "9d50933c11ca4ff69c5fd8401c8982d2",  # finding_id_str
-                "9d50933c11ca4ff69c5fd8401c8982d2",  # original_finding_id
-                "2025-08-08T08:24:06.201Z",  # created_time
-                "2025-08-08T08:24:06.201Z",  # discovered_time
-                None,  # due_date
-                "2025-08-08T08:24:06.201Z",  # last_collected_time
-                "2025-08-08T08:24:06.201Z",  # last_reported_time
-                "",  # original_status
-                None,  # time_to_remediate
-                "",  # category_field
-                "",  # sub_category
-                "rule_001",  # rule_id
-                "",  # resource_reported_not_exist
-                None,  # aggregation_group_id
-                4,  # main_resource_id
-                "pkg0",  # package_name
-                None,  # image_id
-                "koko_account",  # scan_id
-                False,  # editable
-                None,  # reopen_date
-                None,  # finding_type_str
-                None,  # fix_id
-                None,  # fix_vendor_id
-                None,  # fix_type
-                None,  # fix_subtype
-                None,  # rule_type
-                None  # rule_family
-            ),
-            (
-                2, 0, 0, "c9e27257d5dc47d3b6f9fb0c688b3640", "koko",
-                "c9e27257d5dc47d3b6f9fb0c688b3640", "c9e27257d5dc47d3b6f9fb0c688b3640",
-                "2025-08-08T08:24:06.309Z", "2025-08-08T08:24:06.309Z", None,
-                "2025-08-08T08:24:06.309Z", "2025-08-08T08:24:06.309Z", "", None, "", "",
-                "rule_001", "", None, 4, "pkg1", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                3, 0, 0, "3a8ff87e9c474c8cbef0a4aa0f71f217", "koko",
-                "3a8ff87e9c474c8cbef0a4aa0f71f217", "3a8ff87e9c474c8cbef0a4aa0f71f217",
-                "2025-08-08T08:24:06.349Z", "2025-08-08T08:24:06.349Z", None,
-                "2025-08-08T08:24:06.349Z", "2025-08-08T08:24:06.349Z", "", None, "", "",
-                "rule_001", "", None, 4, "pkg1", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                4, 0, 0, "ab2b1886120f4e0fa6e88d9f68ebb86c", "koko",
-                "ab2b1886120f4e0fa6e88d9f68ebb86c", "ab2b1886120f4e0fa6e88d9f68ebb86c",
-                "2025-08-08T08:24:06.388Z", "2025-08-08T08:24:06.388Z", None,
-                "2025-08-08T08:24:06.388Z", "2025-08-08T08:24:06.388Z", "", None, "", "",
-                "rule_002", "", None, 4, "pkg2", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                5, 0, 0, "0f778268e5ae45fbbceef510d9c18640", "koko",
-                "0f778268e5ae45fbbceef510d9c18640", "0f778268e5ae45fbbceef510d9c18640",
-                "2025-08-08T08:24:06.428Z", "2025-08-08T08:24:06.428Z", None,
-                "2025-08-08T08:24:06.428Z", "2025-08-08T08:24:06.428Z", "", None, "", "",
-                "rule_002", "", None, 4, "pkg2", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                6, 0, 0, "17e155826363430482881365ecfc36b8", "koko",
-                "17e155826363430482881365ecfc36b8", "17e155826363430482881365ecfc36b8",
-                "2025-08-08T08:24:06.468Z", "2025-08-08T08:24:06.468Z", None,
-                "2025-08-08T08:24:06.468Z", "2025-08-08T08:24:06.468Z", "", None, "", "",
-                "rule_002", "", None, 4, "pkg2", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                7, 0, 0, "fbfd29ee76cf4d85a36b2b5476169041", "koko",
-                "fbfd29ee76cf4d85a36b2b5476169041", "fbfd29ee76cf4d85a36b2b5476169041",
-                "2025-08-08T08:24:06.509Z", "2025-08-08T08:24:06.509Z", None,
-                "2025-08-08T08:24:06.509Z", "2025-08-08T08:24:06.509Z", "", None, "", "",
-                "rule_003", "", None, 4, "pkg3", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                8, 0, 0, "78b0bf19e90e4f24ba29e218bff34354", "koko",
-                "78b0bf19e90e4f24ba29e218bff34354", "78b0bf19e90e4f24ba29e218bff34354",
-                "2025-08-08T08:24:06.550Z", "2025-08-08T08:24:06.550Z", None,
-                "2025-08-08T08:24:06.550Z", "2025-08-08T08:24:06.550Z", "", None, "", "",
-                "rule_003", "", None, 4, "pkg3", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                9, 0, 0, "10bc668c14984b228f8ba65267f9da5e", "koko",
-                "10bc668c14984b228f8ba65267f9da5e", "10bc668c14984b228f8ba65267f9da5e",
-                "2025-08-08T08:24:06.594Z", "2025-08-08T08:24:06.594Z", None,
-                "2025-08-08T08:24:06.594Z", "2025-08-08T08:24:06.594Z", "", None, "", "",
-                "rule_003", "", None, 4, "pkg3", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-            (
-                10, 0, 0, "b379db5e4dcc4eb5b1e911c22eefda7d", "koko",
-                "b379db5e4dcc4eb5b1e911c22eefda7d", "b379db5e4dcc4eb5b1e911c22eefda7d",
-                "2025-08-08T08:24:06.642Z", "2025-08-08T08:24:06.642Z", None,
-                "2025-08-08T08:24:06.642Z", "2025-08-08T08:24:06.642Z", "", None, "", "",
-                "rule_003", "", None, 4, "pkg3", None, "koko_account", False, None,
-                None, None, None, None, None, None, None
-            ),
-        ]
+        findings_data = []
 
         df = spark.createDataFrame(findings_data, schema)
-        df.createOrReplaceTempView(TableNames.FINDINGS.value)
+        df.createOrReplaceTempView(TableNames.USER_STATUS.value)
         return df
 
-
     def create_plain_resources_data(self, spark):
-        """Create plain_resources using SchemaRegistry"""
         schema = SchemaRegistry.plain_resources_schema()
 
-        plain_resources_data = [
-            (4, "resource_type", "resource_name", "resource_id", "region", "koko_region",
-             "koko_account_koko_region", "cloud_account", "koko_account", "koko_account",
-             "cloud_provider", "koko_provider", "koko_provider", "koko_provider",
-             "koko_account", "koko_account", "{}", "{}", "{}", "{}",
-             "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
-            (3, "region", "koko_region", "koko_account_koko_region", "cloud_account",
-             "koko_account", "koko_account", "cloud_provider", "koko_provider", "koko_provider",
-             None, None, None, "koko_provider", "koko_account", "koko_account",
-             "{}", "{}", "{}", "{}", "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
-            (2, "cloud_account", "koko_account", "koko_account", "cloud_provider",
-             "koko_provider", "koko_provider", None, None, None,
-             None, None, None, "koko_provider", "koko_account", "koko_account",
-             "{}", "{}", "{}", "{}", "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
-            (1, "cloud_provider", "koko_provider", "koko_provider", None, None, None,
-             None, None, None, None, None, None,
-             "koko_provider", None, None, "{}", "{}", "{}", "{}",
-             "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
-        ]
+        plain_resources_data = []
 
         df = spark.createDataFrame(plain_resources_data, schema)
-        df.createOrReplaceTempView(TableNames.PLAIN_RESOURCES.value)
+        df.createOrReplaceTempView(TableNames.USER_STATUS.value)
         return df
 
     def create_findings_scores_data(self, spark):
@@ -314,14 +133,98 @@ class TestAggregationBase:
         df.createOrReplaceTempView(TableNames.FINDINGS_SCORES.value)
         return df
 
+
+    def validate_columns_schema(self, df: DataFrame, expected_columns: set[str]) -> None:
+        actual_cols = set(df.columns)
+
+        assert actual_cols == expected_columns
+
+    def validate_output_consistency(
+            self,
+            spark: SparkSession,
+            output: AggregationOutput
+    ) -> None:
+        """
+        Helper: Validate that association and rollup are consistent.
+
+        Checks:
+        1. Total findings match between association and rollup
+        2. Each group in rollup has corresponding associations
+        """
+        print("\n🔍 Validating output consistency...")
+
+        # Create temp views for SQL validation
+        output.finding_group_association.createOrReplaceTempView("temp_association")
+        output.finding_group_rollup.createOrReplaceTempView("temp_rollup")
+
+        # Verify each group's findings_count matches actual associations
+        mismatch_query = f"""
+            SELECT r.{ColumnNames.GROUP_IDENTIFIER}, 
+                   r.{ColumnNames.FINDINGS_COUNT} as expected_count,
+                   COUNT(a.{ColumnNames.FINDING_ID}) as actual_count
+            FROM temp_rollup r
+            LEFT JOIN temp_association a 
+                ON r.{ColumnNames.GROUP_IDENTIFIER} = a.{ColumnNames.GROUP_IDENTIFIER}
+            GROUP BY r.{ColumnNames.GROUP_IDENTIFIER}, r.{ColumnNames.FINDINGS_COUNT}
+            HAVING r.{ColumnNames.FINDINGS_COUNT} != COUNT(a.{ColumnNames.FINDING_ID})
+        """
+
+        mismatches = spark.sql(mismatch_query)
+        mismatch_count = mismatches.count()
+
+        if mismatch_count > 0:
+            print("⚠️  Found mismatches between rollup and association:")
+            mismatches.show()
+
+        assert mismatch_count == 0, \
+            f"Found {mismatch_count} groups where findings_count doesn't match actual associations"
+
+        print("✅ Output consistency validated")
+
+
+    def get_local_warehouse_path(self):
+        current_file = os.path.abspath(__file__)
+        # Go up from src/spark_aggregation_poc/ to project root
+        project_root = os.path.dirname(os.path.dirname(current_file))
+        warehouse_path = os.path.join(project_root, "local-catalog")
+        print("local_warehouse_path:", warehouse_path)
+        return warehouse_path
+
+    def calculate_group_id(self, rule_idx: int, *values: str) -> str:
+        """
+        Calculate group_id the same way as the aggregation service.
+        Formula: md5(concat_ws("-", rule_idx, value1, value2, ...))
+        """
+        # Join values with "-" separator
+        concatenated = "-".join([str(rule_idx)] + list(values))
+        # Calculate MD5 hash
+        return hashlib.md5(concatenated.encode()).hexdigest()
+
+
+    def create_plain_resources_data(self, spark):
+        schema = SchemaRegistry.plain_resources_schema()
+
+        plain_resources_data = []
+
+        df = spark.createDataFrame(plain_resources_data, schema)
+        df.createOrReplaceTempView(TableNames.PLAIN_RESOURCES.value)
+        return df
+
+    def create_findings_scores_data(self, spark):
+        """Create findings_scores using SchemaRegistry"""
+        schema = SchemaRegistry.findings_scores_schema()
+
+        findings_scores_data = []
+
+        df = spark.createDataFrame(findings_scores_data, schema)
+        df.createOrReplaceTempView(TableNames.FINDINGS_SCORES.value)
+        return df
+
     def create_user_status_data(self, spark):
         """Create user_status using SchemaRegistry"""
         schema = SchemaRegistry.user_status_schema()
 
-        user_status_data = [
-            (i, 10000, None, 10000, None)
-            for i in range(1, 11)
-        ]
+        user_status_data = []
 
         df = spark.createDataFrame(user_status_data, schema)
         df.createOrReplaceTempView(TableNames.USER_STATUS.value)
@@ -331,18 +234,7 @@ class TestAggregationBase:
         """Create statuses using SchemaRegistry"""
         schema = SchemaRegistry.statuses_schema()
 
-        statuses_data = [
-            (10000, "OPEN", "New1", "SYSTEM", "some reason", "some description",
-             False, True, False, None, None),
-            (10001, "FIXED", "Resolved1", "SYSTEM", "some reason", "some description",
-             False, True, False, None, None),
-            (10002, "OPEN", "New1", "USER", "some reason", "some description",
-             False, True, False, None, None),
-            (11, "OPEN", "New", "SYSTEM", "Found by data source",
-             "Finding was identified by data source", False, True, False, None, None),
-            (21, "FIXED", "Resolved", "SYSTEM", "Finding was reported fixed by data source",
-             "Finding was reported fixed by the data source", False, True, False, None, None),
-        ]
+        statuses_data = []
 
         df = spark.createDataFrame(statuses_data, schema)
         df.createOrReplaceTempView(TableNames.STATUSES.value)
@@ -389,100 +281,3 @@ class TestAggregationBase:
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.SELECTION_RULES.value)
         return df
-
-    def create_aggregation_rules_data(self, spark):
-        """Create aggregation_rules using SchemaRegistry"""
-        schema = SchemaRegistry.aggregation_rules_schema()
-
-        aggregation_rules_data = [
-            (4, 1003, "AGG", '{"group_by":["findings.package_name"]}', "{}",
-             False, False, 3, None, None, "seemplicity", "2025-08-08T11:24:06.194Z",
-             "seemplicity", "2025-08-08T08:24:06.194Z", None, None, None),
-            (15, 1013, "AGG",
-             '{"group_by":["findings.package_name", "plain_resources.cloud_account"],"filters_config":{"scopesid":null,"scopesjson":null,"scopes_fields_to_exclude":null,"scopes_fields_to_include":null,"scopes_fields_to_override":null,"scope_group":1,"filtersid":null,"filtersjson":{"value":["koko"],"field":"source","condition":"in"},"filters_fields_to_exclude":null,"filters_fields_to_include":null,"filters_fields_to_override":null}}',
-             "{}", False, False, 3, None, None, "seemplicity", "2025-08-08T11:24:06.194Z",
-             "seemplicity", "2025-08-08T11:24:06.194Z", None, None, None),
-        ]
-
-        df = spark.createDataFrame(aggregation_rules_data, schema)
-        df.createOrReplaceTempView(TableNames.AGGREGATION_RULES.value)
-        return df
-
-    def setup_all_temp_views(self, spark):
-        """Create all temporary views with hardcoded data using SchemaRegistry"""
-        print("=== Creating Temporary Views with Explicit Schemas ===")
-
-        self.create_findings_data(spark)
-        print(f"✅ {TableNames.FINDINGS.value}: 10 rows")
-
-        self.create_plain_resources_data(spark)
-        print(f"✅ {TableNames.PLAIN_RESOURCES.value}: 4 rows")
-
-        self.create_findings_scores_data(spark)
-        print(f"✅ {TableNames.FINDINGS_SCORES.value}: 10 rows")
-
-        self.create_user_status_data(spark)
-        print(f"✅ {TableNames.USER_STATUS.value}: 10 rows")
-
-        self.create_statuses_data(spark)
-        print(f"✅ {TableNames.STATUSES.value}: 5 rows")
-
-        self.create_aggregation_groups_data(spark)
-        print(f"✅ {TableNames.AGGREGATION_GROUPS.value}: 0 rows (empty)")
-
-        self.create_finding_sla_rule_connections_data(spark)
-        print(f"✅ {TableNames.FINDING_SLA_RULE_CONNECTIONS.value}: 0 rows (empty)")
-
-        self.create_findings_additional_data(spark)
-        print(f"✅ {TableNames.FINDINGS_ADDITIONAL_DATA.value}: 0 rows (empty)")
-
-        self.create_findings_info_data(spark)
-        print(f"✅ {TableNames.FINDINGS_INFO.value}: 0 rows (empty)")
-
-        self.create_scoring_rules_data(spark)
-        print(f"✅ {TableNames.SCORING_RULES.value}: 0 rows (empty)")
-
-        self.create_selection_rules_data(spark)
-        print(f"✅ {TableNames.SELECTION_RULES.value}: 0 rows (empty)")
-
-        self.create_aggregation_rules_data(spark)
-        print(f"✅ {TableNames.AGGREGATION_RULES.value}: 2 rows")
-
-        print("\n=== All Temporary Views Created with SchemaRegistry ===")
-
-    def create_mock_rule_loader(self):
-        """Create mock rule loader with realistic aggregation rules"""
-        mock_rule_loader = Mock()
-        mock_rule_loader.load_aggregation_rules.return_value = [
-            AggregationRule(
-                id=4,
-                order=1003,
-                group_by=[ColumnNames.PACKAGE_NAME],  # Use ColumnNames
-                filters_config={},
-                field_calculation=json.dumps({}),
-                rule_type="AGG"
-            ),
-            AggregationRule(
-                id=15,
-                order=1013,
-                group_by=[ColumnNames.PACKAGE_NAME, ColumnNames.CLOUD_ACCOUNT],  # Use ColumnNames
-                filters_config={
-                    "filtersjson": {
-                        "value": ["koko"],
-                        "field": ColumnNames.SOURCE,  # Use ColumnNames
-                        "condition": "in"
-                    }
-                },
-                field_calculation=json.dumps({}),
-                rule_type="AGG"
-            )
-        ]
-        return mock_rule_loader
-
-    def get_local_warehouse_path(self):
-        current_file = os.path.abspath(__file__)
-        # Go up from src/spark_aggregation_poc/ to project root
-        project_root = os.path.dirname(os.path.dirname(current_file))
-        warehouse_path = os.path.join(project_root, "local-catalog")
-        print("local_warehouse_path:", warehouse_path)
-        return warehouse_path

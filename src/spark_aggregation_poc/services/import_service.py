@@ -6,6 +6,7 @@ from pyspark.sql import DataFrame, SparkSession
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, CatalogDalInterface, \
     RelationalDalInterface
+from spark_aggregation_poc.schemas.schemas import Schemas
 
 
 class ImportService(FindingsImporterInterface):
@@ -83,7 +84,7 @@ class ImportService(FindingsImporterInterface):
         """Load large table using batched multi-connection approach"""
 
         # Get ID bounds
-        id_column = self.get_id_column_for_table(table_name)
+        id_column = Schemas.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
 
         # Handle empty tables
@@ -131,7 +132,7 @@ class ImportService(FindingsImporterInterface):
                           max_id_override: int = None) -> DataFrame:
         """Load medium table using simple multi-connection partitioning"""
 
-        id_column = self.get_id_column_for_table(table_name)
+        id_column = Schemas.get_id_column_for_table(table_name)
         min_id, max_id = self.get_table_id_bounds(spark, table_name, id_column)
 
         # Handle empty tables
@@ -180,21 +181,7 @@ class ImportService(FindingsImporterInterface):
             end_id=end_id
         )
 
-    def get_id_column_for_table(self, table_name: str) -> str:
-        """Get the ID column name for each table"""
-        id_columns = {
-            "findings": "id",
-            "findings_scores": "finding_id",
-            "user_status": "id",
-            "findings_info": "id",
-            "findings_additional_data": "finding_id",
-            "finding_sla_rule_connections": "finding_id",
-            "plain_resources": "id",
-            "statuses": "key",  # Different for statuses
-            "aggregation_groups": "id",
-            "aggregation_rules_findings_excluder": "finding_id"
-        }
-        return id_columns.get(table_name, "id")
+
 
     def get_table_id_bounds(self, spark: SparkSession, table_name: str, id_column: str) -> Tuple[int, int]:
         """Get min and max ID for a table"""

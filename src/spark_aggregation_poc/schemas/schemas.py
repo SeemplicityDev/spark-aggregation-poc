@@ -381,3 +381,20 @@ class Schemas:
             TableNames.FINDING_GROUP_ROLLUP: Schemas.finding_group_rollup_base_schema(),
         }
         return schema_map[table_name]
+
+    @classmethod
+    def get_id_column_for_table(cls, table_name: str) -> str:
+        """Get the ID column name for each table using schema constants"""
+        id_columns = {
+            TableNames.FINDINGS.value: ColumnNames.ID,
+            TableNames.FINDINGS_SCORES.value: ColumnNames.FINDING_ID,
+            TableNames.USER_STATUS.value: ColumnNames.ID,
+            TableNames.FINDINGS_INFO.value: ColumnNames.ID,
+            TableNames.FINDINGS_ADDITIONAL_DATA.value: ColumnNames.FINDING_ID,
+            TableNames.FINDING_SLA_RULE_CONNECTIONS.value: ColumnNames.FINDING_ID,
+            TableNames.PLAIN_RESOURCES.value: ColumnNames.ID,
+            TableNames.STATUSES.value: ColumnNames.KEY,  # Different for statuses
+            TableNames.AGGREGATION_GROUPS.value: ColumnNames.ID,
+            "aggregation_rules_findings_excluder": ColumnNames.FINDING_ID  # Note: No TableNames constant for this yet
+        }
+        return id_columns.get(table_name, ColumnNames.ID)

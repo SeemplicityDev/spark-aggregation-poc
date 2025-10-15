@@ -13,11 +13,8 @@ from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 
 
-# Usage Example
 class AggregationService(FindingsAggregatorInterface):
-    """
-    Your main aggregation service using engine rules
-    """
+
     _allow_init = False
 
     @classmethod
@@ -140,9 +137,6 @@ class AggregationService(FindingsAggregatorInterface):
 
 
     def create_groups(self, df: DataFrame, group_columns: List[str], rule_idx: int) -> tuple[DataFrame, DataFrame]:
-        """
-        Your existing create_groups method enhanced with debugging
-        """
         print(f"🔍 Rule {rule_idx} - Input DataFrame columns: {df.columns}")
         print(f"🔍 Rule {rule_idx} - Requested group_columns: {group_columns}")
 
@@ -190,7 +184,6 @@ class AggregationService(FindingsAggregatorInterface):
 
 
     def create_finding_group_association(self, df: DataFrame) -> DataFrame:
-        """Create association using ColumnNames constants"""
         result: DataFrame = df.select(
             spark_col(ColumnNames.GROUP_IDENTIFIER).alias(ColumnNames.GROUP_IDENTIFIER),
             spark_col(ColumnNames.GROUP_IDENTIFIER_READABLE).alias(ColumnNames.GROUP_IDENTIFIER_READABLE),
@@ -201,15 +194,6 @@ class AggregationService(FindingsAggregatorInterface):
 
 
     def remove_table_name_from_group_columns(self, group_columns: List[str]) -> List[str]:
-        """
-        Remove table prefixes from group column names
-
-        Args:
-            group_columns: List of column names with potential table prefixes
-
-        Returns:
-            List of cleaned column names
-        """
         cleaned_columns = []
 
         for column in group_columns:
@@ -224,46 +208,8 @@ class AggregationService(FindingsAggregatorInterface):
         return cleaned_columns
 
 
-    def validate_and_clean_group_columns(self, df: DataFrame, group_columns: List[str]) -> List[str]:
-        """
-        Clean group columns and validate they exist in DataFrame
-
-        Args:
-            df: Input DataFrame
-            group_columns: Raw group columns from engine rules
-
-        Returns:
-            List of valid, cleaned column names
-        """
-        # Clean the column names first
-        cleaned_columns = self.remove_table_name_from_group_columns(group_columns)
-
-        # Validate columns exist in DataFrame
-        df_columns = set(df.columns)
-        valid_columns = [col for col in cleaned_columns if col in df_columns]
-
-        if len(valid_columns) != len(cleaned_columns):
-            missing_columns = set(cleaned_columns) - set(valid_columns)
-            print(f"Missing group columns after cleaning: {missing_columns}")
-            print(f"Original group columns: {group_columns}")
-            print(f"Cleaned group columns: {cleaned_columns}")
-            print(f"Available DataFrame columns: {sorted(df_columns)}")
-
-        return valid_columns
-
-
 
     def apply_filters_config_to_dataframe(self, df: DataFrame, filters_config: Dict[str, Any]) -> DataFrame:
-        """
-        Apply filters_config directly to DataFrame
-
-        Args:
-            df: Input DataFrame
-            filters_config: Filters configuration
-
-        Returns:
-            Filtered DataFrame
-        """
         filter_condition = self.filters_config_parser.generate_filter_condition(filters_config)
 
         if filter_condition:

@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame, SparkSession
 
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import CatalogDalInterface
-from spark_aggregation_poc.schemas.schema_registry import ColumnNames, TableNames
+from spark_aggregation_poc.schemas.schemas import ColumnNames, TableNames
 
 
 class CatalogDal(CatalogDalInterface):

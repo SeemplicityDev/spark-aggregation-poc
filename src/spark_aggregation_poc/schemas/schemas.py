@@ -155,7 +155,7 @@ class TableNames(str, Enum):
     BASE_FINDINGS_VIEW = "base_findings_view"
 
 
-class SchemaRegistry:
+class Schemas:
     """Centralized registry of all schemas"""
 
     @staticmethod
@@ -365,19 +365,19 @@ class SchemaRegistry:
     def get_schema_for_table(table_name: TableNames) -> StructType:
         """Get schema for a given table name"""
         schema_map: Dict[TableNames, StructType] = {
-            TableNames.FINDINGS: SchemaRegistry.findings_schema(),
-            TableNames.PLAIN_RESOURCES: SchemaRegistry.plain_resources_schema(),
-            TableNames.FINDINGS_SCORES: SchemaRegistry.findings_scores_schema(),
-            TableNames.USER_STATUS: SchemaRegistry.user_status_schema(),
-            TableNames.STATUSES: SchemaRegistry.statuses_schema(),
-            TableNames.AGGREGATION_GROUPS: SchemaRegistry.aggregation_groups_schema(),
-            TableNames.FINDING_SLA_RULE_CONNECTIONS: SchemaRegistry.finding_sla_rule_connections_schema(),
-            TableNames.FINDINGS_ADDITIONAL_DATA: SchemaRegistry.findings_additional_data_schema(),
-            TableNames.FINDINGS_INFO: SchemaRegistry.findings_info_schema(),
-            TableNames.SCORING_RULES: SchemaRegistry.scoring_rules_schema(),
-            TableNames.SELECTION_RULES: SchemaRegistry.selection_rules_schema(),
-            TableNames.AGGREGATION_RULES: SchemaRegistry.aggregation_rules_schema(),
-            TableNames.FINDING_GROUP_ASSOCIATION: SchemaRegistry.finding_group_association_schema(),
-            TableNames.FINDING_GROUP_ROLLUP: SchemaRegistry.finding_group_rollup_base_schema(),
+            TableNames.FINDINGS: Schemas.findings_schema(),
+            TableNames.PLAIN_RESOURCES: Schemas.plain_resources_schema(),
+            TableNames.FINDINGS_SCORES: Schemas.findings_scores_schema(),
+            TableNames.USER_STATUS: Schemas.user_status_schema(),
+            TableNames.STATUSES: Schemas.statuses_schema(),
+            TableNames.AGGREGATION_GROUPS: Schemas.aggregation_groups_schema(),
+            TableNames.FINDING_SLA_RULE_CONNECTIONS: Schemas.finding_sla_rule_connections_schema(),
+            TableNames.FINDINGS_ADDITIONAL_DATA: Schemas.findings_additional_data_schema(),
+            TableNames.FINDINGS_INFO: Schemas.findings_info_schema(),
+            TableNames.SCORING_RULES: Schemas.scoring_rules_schema(),
+            TableNames.SELECTION_RULES: Schemas.selection_rules_schema(),
+            TableNames.AGGREGATION_RULES: Schemas.aggregation_rules_schema(),
+            TableNames.FINDING_GROUP_ASSOCIATION: Schemas.finding_group_association_schema(),
+            TableNames.FINDING_GROUP_ROLLUP: Schemas.finding_group_rollup_base_schema(),
         }
         return schema_map[table_name]

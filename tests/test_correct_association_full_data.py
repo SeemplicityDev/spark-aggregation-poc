@@ -1,3 +1,4 @@
+"""Tests for initial aggregation functionality using SchemaRegistry and AggregationOutput"""
 import json
 from unittest.mock import Mock
 
@@ -7,28 +8,27 @@ from spark_aggregation_poc.factory.factory import Factory
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface
 from spark_aggregation_poc.models.aggregation_output import AggregationOutput
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
-from spark_aggregation_poc.schemas.schemas import Schemas, TableNames, ColumnNames
+from spark_aggregation_poc.schemas.schemas import (
+    ColumnNames, TableNames, Schemas
+)
 from tests.base.test_aggregation_base import TestAggregationBase
 
 
-class TestCorrectAssociation(TestAggregationBase):
+class TestCorrectAssociationFullData(TestAggregationBase):
 
-    def test_correct_association(self, spark, test_config):
+    def test_correct_association_full_data(self, spark, test_config):
         print("\n=== Running Initial Aggregation Test ===")
 
         output: AggregationOutput = self.run_aggregation(spark, test_config)
 
         # Validate data integrity (only if we have data)
         if output.finding_group_association.count() > 0:
-            super().validate_columns_schema(output.finding_group_association, set(Schemas.get_schema_for_table(
-                TableNames.FINDING_GROUP_ASSOCIATION).names))
-            super().validate_columns_schema(output.finding_group_rollup, set(Schemas.get_schema_for_table(
-                TableNames.FINDING_GROUP_ROLLUP).names))
+            super().validate_columns_schema(output.finding_group_association, set(Schemas.get_schema_for_table(TableNames.FINDING_GROUP_ASSOCIATION).names))
+            super().validate_columns_schema(output.finding_group_rollup, set(Schemas.get_schema_for_table(TableNames.FINDING_GROUP_ROLLUP).names))
             super().validate_output_consistency(spark, output)
             self._validate_correct_group_association(spark, output)
 
-
-    def run_aggregation(self, spark: SparkSession, test_config) -> AggregationOutput:
+    def run_aggregation(self,spark: SparkSession,test_config) -> AggregationOutput:
         aggregation_service: FindingsAggregatorInterface = Factory.create_aggregator(test_config)
         aggregation_service.rule_loader = self._create_mock_rule_loader()
 
@@ -75,6 +75,7 @@ class TestCorrectAssociation(TestAggregationBase):
             (super().calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 10),
         ]
 
+
         # Create expected DataFrame with exact same schema
         expected_df = spark.createDataFrame(
             expected_data,
@@ -109,6 +110,8 @@ class TestCorrectAssociation(TestAggregationBase):
         assert extra_count == 0, f"Found {extra_count} unexpected rows"
 
         print("\n✅ PERFECT MATCH! Complete DataFrames are identical.")
+
+
 
     def _create_mock_rule_loader(self):
         """Create mock rule loader with realistic aggregation rules"""
@@ -267,6 +270,7 @@ class TestCorrectAssociation(TestAggregationBase):
         return df
 
 
+
     def create_plain_resources_data(self, spark):
         """Create plain_resources using SchemaRegistry"""
         schema = Schemas.plain_resources_schema()
@@ -342,3 +346,6 @@ class TestCorrectAssociation(TestAggregationBase):
         df = spark.createDataFrame(statuses_data, schema)
         df.createOrReplaceTempView(TableNames.STATUSES.value)
         return df
+
+
+

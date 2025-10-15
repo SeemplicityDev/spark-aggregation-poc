@@ -8,112 +8,33 @@ from spark_aggregation_poc.factory.factory import Factory
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface
 from spark_aggregation_poc.models.aggregation_output import AggregationOutput
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
-from spark_aggregation_poc.schemas.schema_registry import (
-    ColumnNames, TableNames, SchemaRegistry
+from spark_aggregation_poc.schemas.schemas import (
+    ColumnNames, TableNames, Schemas
 )
 from tests.base.test_aggregation_base import TestAggregationBase
 
 
-class TestInitialAggregation(TestAggregationBase):
+class TestValidOutputSchemas(TestAggregationBase):
 
-    def test_initial_aggregation(self, spark, test_config):
+    def test_valid_output_schemas(self, spark, test_config):
         print("\n=== Running Initial Aggregation Test ===")
 
         output: AggregationOutput = self.run_aggregation(spark, test_config)
 
-        # Validate data integrity (only if we have data)
         if output.finding_group_association.count() > 0:
-            super().validate_columns_schema(output.finding_group_association, set(SchemaRegistry.get_schema_for_table(TableNames.FINDING_GROUP_ASSOCIATION).names))
-            super().validate_columns_schema(output.finding_group_rollup, set(SchemaRegistry.get_schema_for_table(TableNames.FINDING_GROUP_ROLLUP).names))
-            super().validate_output_consistency(spark, output)
-            self._validate_correct_group_association(spark, output)
+            super().validate_columns_schema(output.finding_group_association, set(Schemas.get_schema_for_table(TableNames.FINDING_GROUP_ASSOCIATION).names))
+            super().validate_columns_schema(output.finding_group_rollup, set(Schemas.get_schema_for_table(TableNames.FINDING_GROUP_ROLLUP).names))
+
 
     def run_aggregation(self,spark: SparkSession,test_config) -> AggregationOutput:
         aggregation_service: FindingsAggregatorInterface = Factory.create_aggregator(test_config)
-        aggregation_service.rule_loader = self._create_mock_rule_loader()
+        aggregation_service.rule_loader = self.create_mock_rule_loader()
 
         return aggregation_service.aggregate_findings(spark=spark)
 
 
-    def _validate_correct_group_association(self, spark: SparkSession, output: AggregationOutput):
-        """
-        Direct complete DataFrame comparison using subtract().
 
-        Since group_id is deterministic (concat of group_by fields),
-        we can hardcode the expected DataFrame with exact group_ids.
-        """
-        print("\n=== Complete DataFrame Subtract ===")
-
-        # Run aggregation
-        actual_df = output.finding_group_association
-
-        # Hardcoded expected DataFrame with exact group_ids
-        # group_id format: {group_by_columns joined by underscore}
-        expected_data = [
-            # Rule 0 (rule_idx=0): Group by package_name only
-            (super().calculate_group_id(0, "pkg0"), "pkg0", 1),
-            (super().calculate_group_id(0, "pkg1"), "pkg1", 2),
-            (super().calculate_group_id(0, "pkg1"), "pkg1", 3),
-            (super().calculate_group_id(0, "pkg2"), "pkg2", 4),
-            (super().calculate_group_id(0, "pkg2"), "pkg2", 5),
-            (super().calculate_group_id(0, "pkg2"), "pkg2", 6),
-            (super().calculate_group_id(0, "pkg3"), "pkg3", 7),
-            (super().calculate_group_id(0, "pkg3"), "pkg3", 8),
-            (super().calculate_group_id(0, "pkg3"), "pkg3", 9),
-            (super().calculate_group_id(0, "pkg3"), "pkg3", 10),
-
-            # Rule 1 (rule_idx=1): Group by package_name + cloud_account
-            (super().calculate_group_id(1, "pkg0-koko_account"), "pkg0_koko_account", 1),
-            (super().calculate_group_id(1, "pkg1-koko_account"), "pkg1_koko_account", 2),
-            (super().calculate_group_id(1, "pkg1-koko_account"), "pkg1_koko_account", 3),
-            (super().calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 4),
-            (super().calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 5),
-            (super().calculate_group_id(1, "pkg2-koko_account"), "pkg2_koko_account", 6),
-            (super().calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 7),
-            (super().calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 8),
-            (super().calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 9),
-            (super().calculate_group_id(1, "pkg3-koko_account"), "pkg3_koko_account", 10),
-        ]
-
-
-        # Create expected DataFrame with exact same schema
-        expected_df = spark.createDataFrame(
-            expected_data,
-            schema=SchemaRegistry.finding_group_association_schema()
-        )
-
-        print(f"\n📊 Expected: {expected_df.count()} rows")
-        print(f"📊 Actual: {actual_df.count()} rows")
-
-        print("\n📋 Expected DataFrame:")
-        expected_df.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(50, truncate=False)
-
-        print("\n📋 Actual DataFrame:")
-        actual_df.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(50, truncate=False)
-
-        # Direct subtract - comparing COMPLETE DataFrames (both columns)!
-        missing = expected_df.subtract(actual_df)
-        extra = actual_df.subtract(expected_df)
-
-        missing_count = missing.count()
-        extra_count = extra.count()
-
-        if missing_count > 0:
-            print("\n❌ MISSING rows (in expected but NOT in actual):")
-            missing.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(truncate=False)
-
-        if extra_count > 0:
-            print("\n❌ EXTRA rows (in actual but NOT in expected):")
-            extra.orderBy(ColumnNames.GROUP_IDENTIFIER, ColumnNames.FINDING_ID).show(truncate=False)
-
-        assert missing_count == 0, f"Missing {missing_count} expected rows"
-        assert extra_count == 0, f"Found {extra_count} unexpected rows"
-
-        print("\n✅ PERFECT MATCH! Complete DataFrames are identical.")
-
-
-
-    def _create_mock_rule_loader(self):
+    def create_mock_rule_loader(self) -> Mock:
         """Create mock rule loader with realistic aggregation rules"""
         mock_rule_loader = Mock()
         mock_rule_loader.load_aggregation_rules.return_value = [
@@ -145,7 +66,7 @@ class TestInitialAggregation(TestAggregationBase):
     def create_findings_data(self, spark):
         print("\n=== Creating Findings Data from Base===")
         """Create findings test data using SchemaRegistry"""
-        schema = SchemaRegistry.findings_schema()
+        schema = Schemas.findings_schema()
 
         # Schema has 32 fields in this order:
         # id, datasource_id, datasource_definition_id, title, source, finding_id_str,
@@ -269,8 +190,80 @@ class TestInitialAggregation(TestAggregationBase):
         df.createOrReplaceTempView(TableNames.FINDINGS.value)
         return df
 
+    def create_plain_resources_data(self, spark):
+        """Create plain_resources using SchemaRegistry"""
+        schema = Schemas.plain_resources_schema()
 
+        plain_resources_data = [
+            (4, "resource_type", "resource_name", "resource_id", "region", "koko_region",
+             "koko_account_koko_region", "cloud_account", "koko_account", "koko_account",
+             "cloud_provider", "koko_provider", "koko_provider", "koko_provider",
+             "koko_account", "koko_account", "{}", "{}", "{}", "{}",
+             "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
+            (3, "region", "koko_region", "koko_account_koko_region", "cloud_account",
+             "koko_account", "koko_account", "cloud_provider", "koko_provider", "koko_provider",
+             None, None, None, "koko_provider", "koko_account", "koko_account",
+             "{}", "{}", "{}", "{}", "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
+            (2, "cloud_account", "koko_account", "koko_account", "cloud_provider",
+             "koko_provider", "koko_provider", None, None, None,
+             None, None, None, "koko_provider", "koko_account", "koko_account",
+             "{}", "{}", "{}", "{}", "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
+            (1, "cloud_provider", "koko_provider", "koko_provider", None, None, None,
+             None, None, None, None, None, None,
+             "koko_provider", None, None, "{}", "{}", "{}", "{}",
+             "2025-08-08T08:24:06.000Z", "2025-08-08T08:24:06.000Z"),
+        ]
 
+        df = spark.createDataFrame(plain_resources_data, schema)
+        df.createOrReplaceTempView(TableNames.PLAIN_RESOURCES.value)
+        return df
+
+    def create_findings_scores_data(self, spark):
+        """Create findings_scores using SchemaRegistry"""
+        schema = Schemas.findings_scores_schema()
+
+        findings_scores_data = [
+            (finding_id, "1", 1.0, None, None, None, None, None, 1.0, 3, None)
+            for finding_id in range(1, 11)
+        ]
+
+        df = spark.createDataFrame(findings_scores_data, schema)
+        df.createOrReplaceTempView(TableNames.FINDINGS_SCORES.value)
+        return df
+
+    def create_user_status_data(self, spark):
+        """Create user_status using SchemaRegistry"""
+        schema = Schemas.user_status_schema()
+
+        user_status_data = [
+            (i, 10000, None, 10000, None)
+            for i in range(1, 11)
+        ]
+
+        df = spark.createDataFrame(user_status_data, schema)
+        df.createOrReplaceTempView(TableNames.USER_STATUS.value)
+        return df
+
+    def create_statuses_data(self, spark):
+        """Create statuses using SchemaRegistry"""
+        schema = Schemas.statuses_schema()
+
+        statuses_data = [
+            (10000, "OPEN", "New1", "SYSTEM", "some reason", "some description",
+             False, True, False, None, None),
+            (10001, "FIXED", "Resolved1", "SYSTEM", "some reason", "some description",
+             False, True, False, None, None),
+            (10002, "OPEN", "New1", "USER", "some reason", "some description",
+             False, True, False, None, None),
+            (11, "OPEN", "New", "SYSTEM", "Found by data source",
+             "Finding was identified by data source", False, True, False, None, None),
+            (21, "FIXED", "Resolved", "SYSTEM", "Finding was reported fixed by data source",
+             "Finding was reported fixed by the data source", False, True, False, None, None),
+        ]
+
+        df = spark.createDataFrame(statuses_data, schema)
+        df.createOrReplaceTempView(TableNames.STATUSES.value)
+        return df
 
 
 

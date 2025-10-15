@@ -1,30 +1,21 @@
 import hashlib
-import json
 import os
 from abc import abstractmethod
-from typing import final
 from unittest.mock import Mock
 
 import pytest
 from pyspark.sql import SparkSession, DataFrame
 
-from spark_aggregation_poc.factory.factory import Factory
-from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface
+from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.models.aggregation_output import AggregationOutput
-from spark_aggregation_poc.schemas.schema_registry import (
-    SchemaRegistry, ColumnNames, TableNames
+from spark_aggregation_poc.schemas.schemas import (
+    Schemas, ColumnNames, TableNames
 )
 
-from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
 
 class TestAggregationBase:
-    """
-    Sanity tests for aggregation service with hardcoded test data.
-    Data is created in code rather than loaded from JSON files.
-    """
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="session")
     def spark(self):
         spark_session = SparkSession.builder \
             .appName("PostgreSQLSparkApp") \
@@ -37,11 +28,10 @@ class TestAggregationBase:
             .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
             .getOrCreate()
 
-        yield spark_session  # ← ADDED yield
+        yield spark_session
 
-        # Cleanup after all tests
         print("\n🧹 Stopping Spark session...")
-        spark_session.stop()  # ← ADDED cleanup
+        spark_session.stop()
 
 
     @pytest.fixture(scope="class")
@@ -101,9 +91,13 @@ class TestAggregationBase:
     def run_aggregation(self,spark: SparkSession,test_config) -> AggregationOutput:
        pass
 
+    @abstractmethod
+    def create_mock_rule_loader(self) -> Mock:
+        pass
+
 
     def create_findings_data(self, spark):
-        schema = SchemaRegistry.findings_schema()
+        schema = Schemas.findings_schema()
 
         findings_data = []
 
@@ -112,7 +106,7 @@ class TestAggregationBase:
         return df
 
     def create_plain_resources_data(self, spark):
-        schema = SchemaRegistry.plain_resources_schema()
+        schema = Schemas.plain_resources_schema()
 
         plain_resources_data = []
 
@@ -122,7 +116,7 @@ class TestAggregationBase:
 
     def create_findings_scores_data(self, spark):
         """Create findings_scores using SchemaRegistry"""
-        schema = SchemaRegistry.findings_scores_schema()
+        schema = Schemas.findings_scores_schema()
 
         findings_scores_data = [
             (finding_id, "1", 1.0, None, None, None, None, None, 1.0, 3, None)
@@ -202,7 +196,7 @@ class TestAggregationBase:
 
 
     def create_plain_resources_data(self, spark):
-        schema = SchemaRegistry.plain_resources_schema()
+        schema = Schemas.plain_resources_schema()
 
         plain_resources_data = []
 
@@ -212,7 +206,7 @@ class TestAggregationBase:
 
     def create_findings_scores_data(self, spark):
         """Create findings_scores using SchemaRegistry"""
-        schema = SchemaRegistry.findings_scores_schema()
+        schema = Schemas.findings_scores_schema()
 
         findings_scores_data = []
 
@@ -222,7 +216,7 @@ class TestAggregationBase:
 
     def create_user_status_data(self, spark):
         """Create user_status using SchemaRegistry"""
-        schema = SchemaRegistry.user_status_schema()
+        schema = Schemas.user_status_schema()
 
         user_status_data = []
 
@@ -232,7 +226,7 @@ class TestAggregationBase:
 
     def create_statuses_data(self, spark):
         """Create statuses using SchemaRegistry"""
-        schema = SchemaRegistry.statuses_schema()
+        schema = Schemas.statuses_schema()
 
         statuses_data = []
 
@@ -242,42 +236,42 @@ class TestAggregationBase:
 
     def create_aggregation_groups_data(self, spark):
         """Create empty aggregation_groups using SchemaRegistry"""
-        schema = SchemaRegistry.aggregation_groups_schema()
+        schema = Schemas.aggregation_groups_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.AGGREGATION_GROUPS.value)
         return df
 
     def create_finding_sla_rule_connections_data(self, spark):
         """Create empty finding_sla_rule_connections using SchemaRegistry"""
-        schema = SchemaRegistry.finding_sla_rule_connections_schema()
+        schema = Schemas.finding_sla_rule_connections_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.FINDING_SLA_RULE_CONNECTIONS.value)
         return df
 
     def create_findings_additional_data(self, spark):
         """Create empty findings_additional_data using SchemaRegistry"""
-        schema = SchemaRegistry.findings_additional_data_schema()
+        schema = Schemas.findings_additional_data_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.FINDINGS_ADDITIONAL_DATA.value)
         return df
 
     def create_findings_info_data(self, spark):
         """Create empty findings_info using SchemaRegistry"""
-        schema = SchemaRegistry.findings_info_schema()
+        schema = Schemas.findings_info_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.FINDINGS_INFO.value)
         return df
 
     def create_scoring_rules_data(self, spark):
         """Create empty scoring_rules using SchemaRegistry"""
-        schema = SchemaRegistry.scoring_rules_schema()
+        schema = Schemas.scoring_rules_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.SCORING_RULES.value)
         return df
 
     def create_selection_rules_data(self, spark):
         """Create empty selection_rules using SchemaRegistry"""
-        schema = SchemaRegistry.selection_rules_schema()
+        schema = Schemas.selection_rules_schema()
         df = spark.createDataFrame([], schema)
         df.createOrReplaceTempView(TableNames.SELECTION_RULES.value)
         return df

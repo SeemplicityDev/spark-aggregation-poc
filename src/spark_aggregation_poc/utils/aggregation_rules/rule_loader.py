@@ -8,7 +8,7 @@ from pyspark.sql.functions import col
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import RuleLoaderInterface, RelationalDalInterface
 from spark_aggregation_poc.models.spark_aggregation_rules import AggregationRule
-from spark_aggregation_poc.schemas.schema_registry import ColumnNames, TableNames
+from spark_aggregation_poc.schemas.schemas import ColumnNames, TableNames
 
 
 class RuleLoaderService(RuleLoaderInterface):

@@ -8,7 +8,7 @@ from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.interfaces.interfaces import FindingsAggregatorInterface, RuleLoaderInterface, \
     FilterConfigParserInterface, CatalogDalInterface
 from spark_aggregation_poc.models.aggregation_output import AggregationOutput
-from spark_aggregation_poc.schemas.schema_registry import ColumnNames, TableNames
+from spark_aggregation_poc.schemas.schemas import ColumnNames, TableNames
 from spark_aggregation_poc.services.aggregation.rollup_util import RollupUtil
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import AggregationRule
 

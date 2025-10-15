@@ -8,7 +8,7 @@ from pyspark.sql.functions import (
     first, bool_or
 )
 
-from spark_aggregation_poc.schemas.schema_registry import ColumnNames
+from spark_aggregation_poc.schemas.schemas import ColumnNames
 
 
 class RollupUtil:

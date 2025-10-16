@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from spark_aggregation_poc.config.config import Config
 from spark_aggregation_poc.factory.context import build_app_context, AppContext
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \
-    AggregatedFindingsExporterInterface, AggregationDeltaCalculatorInterface
+    AggregatedFindingsExporterInterface, UpdatePlannerInterface
 
 
 def run_aggregation(spark: SparkSession, config: Config = None):
@@ -11,7 +11,7 @@ def run_aggregation(spark: SparkSession, config: Config = None):
         app_context: AppContext = build_app_context(config)
         import_service: FindingsImporterInterface = app_context.import_service
         aggregation_service: FindingsAggregatorInterface = app_context.aggregation_service
-        delta_calculation_service: AggregationDeltaCalculatorInterface = app_context.delta_calculation_service
+        update_planner_service: UpdatePlannerInterface = app_context.update_planner_service
         export_service: AggregatedFindingsExporterInterface = app_context.export_service
 
         from time import time

@@ -42,13 +42,18 @@ class AggregationService(FindingsAggregatorInterface):
         all_finding_group_rollup: List[DataFrame] = []
         all_finding_group_association: List[DataFrame] = []
 
+        # Track finding IDs that have already been grouped
+        processed_finding_ids: Optional[DataFrame] = None
+
         for rule_idx, rule in enumerate(spark_rules):
             start_time = datetime.now()
             print(f"Processing rule {rule_idx + 1}: ID={rule.id}, Order={rule.order}, Type={rule.rule_type} {start_time.strftime('%H:%M:%S')}")
 
+            current_findings_df = self.exclude_prev_rules_findings(findings_df, processed_finding_ids, rule_idx)
+
             # Apply filters_config
             filtered_df = self.apply_filters_config_to_dataframe(
-                findings_df,
+                current_findings_df,
                 rule.filters_config
             )
             filtered_count = filtered_df.count()
@@ -60,21 +65,23 @@ class AggregationService(FindingsAggregatorInterface):
 
             if rule.group_by:
                 # Apply grouping and aggregation
-                df_finding_group_association, df_finding_group_rollup  = self.create_groups(
+                df_association_single_rule, df_rollup_single_rule  = self.create_groups(
                     filtered_df,
                     rule.group_by,
                     rule_idx
                 )
-                group_count = df_finding_group_rollup.count()
+                group_count = df_rollup_single_rule.count()
                 if group_count > 0:
                     print(f"Rule {rule_idx + 1}: Created {group_count} groups")
 
-                    all_finding_group_rollup.append(df_finding_group_rollup)
-                    all_finding_group_association.append(df_finding_group_association)
+                    all_finding_group_rollup.append(df_rollup_single_rule)
+                    all_finding_group_association.append(df_association_single_rule)
 
+                    processed_finding_ids = self.update_processed_findings(df_association_single_rule,
+                                                                           processed_finding_ids)
                     # Show sample
-                    df_finding_group_rollup.show(30, False)
-                    df_finding_group_association.show(30, False)
+                    df_rollup_single_rule.show(30, False)
+                    df_association_single_rule.show(30, False)
                 else:
                     print(f"Rule {rule_idx + 1}: No groups created")
 
@@ -86,6 +93,33 @@ class AggregationService(FindingsAggregatorInterface):
             finding_group_association=df_final_finding_group_association,
             finding_group_rollup=df_final_finding_group_rollup
         )
+
+    def update_processed_findings(self, df_association_single_rule, processed_finding_ids):
+        # Update the set of processed finding IDs
+        current_grouped_findings = df_association_single_rule.select(ColumnNames.FINDING_ID).distinct()
+        if processed_finding_ids is None:
+            processed_finding_ids = current_grouped_findings
+        else:
+            processed_finding_ids = processed_finding_ids.union(current_grouped_findings).distinct()
+        return processed_finding_ids
+
+    def exclude_prev_rules_findings(self, findings_df, processed_finding_ids, rule_idx):
+        # Filter out findings that were already grouped in previous rules
+        current_findings_df = findings_df
+        if processed_finding_ids is not None:
+            before_count = current_findings_df.count()
+            current_findings_df = current_findings_df.join(
+                processed_finding_ids,
+                findings_df[ColumnNames.FINDING_ID] == processed_finding_ids[ColumnNames.FINDING_ID],
+                "left_anti"  # Keep only findings NOT in processed_finding_ids
+            )
+            after_count = current_findings_df.count()
+            filtered_out_count = before_count - after_count
+            if filtered_out_count > 0:
+                print(
+                    f"Rule {rule_idx + 1}: Filtered out {filtered_out_count:,} findings already grouped in previous rules")
+        return current_findings_df
+
 
     def write_aggregated_findings(self, spark: SparkSession, aggregation_output: AggregationOutput ):
         self.catalog_dal.save_to_catalog(

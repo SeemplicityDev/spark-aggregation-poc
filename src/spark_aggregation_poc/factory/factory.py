@@ -5,11 +5,11 @@ from spark_aggregation_poc.dal.catalog_dal import CatalogDal
 from spark_aggregation_poc.dal.relational_dal import RelationalDal
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \
     AggregatedFindingsExporterInterface, \
-    FilterConfigParserInterface, CatalogDalInterface, AggregationDeltaCalculatorInterface, RelationalDalInterface, \
+    FilterConfigParserInterface, CatalogDalInterface, UpdatePlannerInterface, RelationalDalInterface, \
     FileDalInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
     AggregationService
-from spark_aggregation_poc.services.delta_calculation_service import DeltaCalculationService
+from spark_aggregation_poc.services.update_planner_service import UpdatePlannerService
 from spark_aggregation_poc.services.export_service import ExportService
 from spark_aggregation_poc.services.import_service import ImportService
 from spark_aggregation_poc.utils.aggregation_rules.rule_loader import RuleLoaderInterface, RuleLoaderService
@@ -34,8 +34,8 @@ class Factory:
 
 
     @classmethod
-    def create_change_calculator(cls, config: Config) -> AggregationDeltaCalculatorInterface:
-        return DeltaCalculationService.create_delta_calculation_service(config=config)
+    def create_change_calculator(cls, config: Config) -> UpdatePlannerInterface:
+        return UpdatePlannerService.create_update_planner_service(config=config)
 
 
     @classmethod

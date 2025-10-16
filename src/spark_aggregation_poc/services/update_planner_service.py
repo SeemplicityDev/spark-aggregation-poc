@@ -1,15 +1,15 @@
 from pyspark.sql import DataFrame
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import AggregationDeltaCalculatorInterface
+from spark_aggregation_poc.interfaces.interfaces import UpdatePlannerInterface
 
 
-class DeltaCalculationService(AggregationDeltaCalculatorInterface):
+class UpdatePlannerService(UpdatePlannerInterface):
 
     @classmethod
-    def create_delta_calculation_service(cls, config: Config) -> AggregationDeltaCalculatorInterface:
+    def create_update_planner_service(cls, config: Config) -> UpdatePlannerInterface:
         cls._allow_init = True
-        result = DeltaCalculationService(config)
+        result = UpdatePlannerService(config)
         cls._allow_init = False
 
         return result

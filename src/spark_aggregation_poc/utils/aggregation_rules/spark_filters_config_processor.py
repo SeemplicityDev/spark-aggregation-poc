@@ -40,9 +40,9 @@ class FiltersConfigParser(FilterConfigParserInterface):
 
         for field, values in filters_config.items():
             # # Skip 'scope_group' field - disregard it completely
-            # if field == "scope_group":
-            #     print(f"Skipping 'scope_group' field in filters_config")
-            #     continue
+            if field == "scope_group" and values == 1:
+                print(f"Skipping 'scope_group' field with value 1, since all findings are automatically included")
+                continue
 
             # Handle scopesjson
             if field == "scopesjson":

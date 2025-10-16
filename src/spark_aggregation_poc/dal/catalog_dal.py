@@ -85,7 +85,6 @@ class CatalogDal(CatalogDalInterface):
                 {self.column_with_alias(TableNames.FINDINGS_INFO.value, ColumnNames.ID, Schemas.findings_info_schema())},
                 {TableNames.STATUSES.value}.{ColumnNames.CATEGORY},
                 {TableNames.FINDINGS_ADDITIONAL_DATA.value}.{ColumnNames.CVE}[1] as {ColumnNames.CVE},
-                {TableNames.SELECTION_RULES.value}.{ColumnNames.SCOPE_GROUP},
                 {TableNames.RESOURCE_TO_SCOPES.value}.{ColumnNames.SCOPE_IDS}
             FROM {self.catalog_table_prefix}{TableNames.FINDINGS.value}
             LEFT OUTER JOIN {self.catalog_table_prefix}{TableNames.FINDING_SLA_RULE_CONNECTIONS.value} ON
@@ -153,8 +152,8 @@ class CatalogDal(CatalogDalInterface):
             "left"
         ).select(
             col("*"),  # All columns from base_df
-            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.ID}").alias("scope_group_id"),
-            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.NAME}").alias("scope_group_name")
+            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.ID}").alias(ColumnNames.SCOPE_GROUP),
+            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.NAME}").alias(ColumnNames.SCOPE_GROUP_NAME)
         )
         return result_df
 

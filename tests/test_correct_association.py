@@ -127,6 +127,7 @@ class TestCorrectAssociation(TestAggregationBase):
                 order=1013,
                 group_by=[ColumnNames.PACKAGE_NAME, ColumnNames.CLOUD_ACCOUNT],  # Use ColumnNames
                 filters_config={
+                    "scope_group": 1,
                     "filtersjson": {
                         "value": ["koko"],
                         "field": ColumnNames.SOURCE,  # Use ColumnNames
@@ -333,5 +334,30 @@ class TestCorrectAssociation(TestAggregationBase):
 
         df = spark.createDataFrame(user_status_data, schema)
         df.createOrReplaceTempView(TableNames.USER_STATUS.value)
+        return df
+
+    def create_resource_to_scopes_data(self, spark):
+        """Create user_status using SchemaRegistry"""
+        schema = Schemas.resource_to_scopes_schema()
+
+        resource_to_scopes_data = [
+            (4, [1])
+        ]
+
+        df = spark.createDataFrame(resource_to_scopes_data, schema)
+        df.createOrReplaceTempView(TableNames.RESOURCE_TO_SCOPES.value)
+        return df
+
+
+    def create_scope_groups_data(self, spark):
+        """Create user_status using SchemaRegistry"""
+        schema = Schemas.scope_groups_schema()
+
+        scope_groups_data = [
+            (1, "fffff", False, None, True)
+        ]
+
+        df = spark.createDataFrame(scope_groups_data, schema)
+        df.createOrReplaceTempView(TableNames.SCOPE_GROUPS.value)
         return df
 

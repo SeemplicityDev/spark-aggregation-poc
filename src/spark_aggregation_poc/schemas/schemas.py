@@ -134,6 +134,7 @@ class ColumnNames:
     # Other
     SELECTION_RULE_ID = "selection_rule_id"
     SCOPE_GROUP = "scope_group"
+    SCOPE_GROUP_NAME = "scope_group_name"
 
     # resource_to_scopes columns
     # RESOURCE_ID = "resource_id"

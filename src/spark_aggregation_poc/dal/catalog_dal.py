@@ -1,6 +1,7 @@
 """Catalog Data Access Layer with strong typing"""
 from typing import Final
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import explode_outer, col
 from pyspark.sql.types import StructType
 
 from spark_aggregation_poc.config.config import Config
@@ -49,8 +50,8 @@ class CatalogDal(CatalogDalInterface):
         view_name: Final[str] = TableNames.BASE_FINDINGS_VIEW.value
 
         # Build SQL using ColumnNames constants for type safety
-        sql_str: str = f"""
-            CREATE OR REPLACE TEMPORARY VIEW {view_name} AS
+        # noinspection PyUnresolvedReferences
+        base_sql: str = f"""            
             SELECT
                 {self.column_with_alias(TableNames.FINDINGS.value, ColumnNames.ID, Schemas.findings_schema())},
                 {self.column_with_alias(TableNames.FINDINGS.value, ColumnNames.PACKAGE_NAME, Schemas.findings_schema())},
@@ -84,7 +85,8 @@ class CatalogDal(CatalogDalInterface):
                 {self.column_with_alias(TableNames.FINDINGS_INFO.value, ColumnNames.ID, Schemas.findings_info_schema())},
                 {TableNames.STATUSES.value}.{ColumnNames.CATEGORY},
                 {TableNames.FINDINGS_ADDITIONAL_DATA.value}.{ColumnNames.CVE}[1] as {ColumnNames.CVE},
-                {TableNames.SELECTION_RULES.value}.{ColumnNames.SCOPE_GROUP}
+                {TableNames.SELECTION_RULES.value}.{ColumnNames.SCOPE_GROUP},
+                {TableNames.RESOURCE_TO_SCOPES.value}.{ColumnNames.SCOPE_IDS}
             FROM {self.catalog_table_prefix}{TableNames.FINDINGS.value}
             LEFT OUTER JOIN {self.catalog_table_prefix}{TableNames.FINDING_SLA_RULE_CONNECTIONS.value} ON
                 {TableNames.FINDINGS.value}.{ColumnNames.ID} = {TableNames.FINDING_SLA_RULE_CONNECTIONS.value}.{ColumnNames.FINDING_ID}
@@ -105,32 +107,56 @@ class CatalogDal(CatalogDalInterface):
             LEFT OUTER JOIN {self.catalog_table_prefix}{TableNames.SCORING_RULES.value} ON
                 {TableNames.FINDINGS_SCORES.value}.{ColumnNames.SCORING_RULE_ID} = {TableNames.SCORING_RULES.value}.{ColumnNames.ID}
             LEFT OUTER JOIN {self.catalog_table_prefix}{TableNames.SELECTION_RULES.value} ON
-                {TableNames.SCORING_RULES.value}.{ColumnNames.SELECTION_RULE_ID} = {TableNames.SELECTION_RULES.value}.{ColumnNames.ID}
+                {TableNames.SCORING_RULES.value}.{ColumnNames.SELECTION_RULE_ID} = {TableNames.SELECTION_RULES.value}.{ColumnNames.ID}    
+            LEFT JOIN {self.catalog_table_prefix}{TableNames.FINDING_TICKET_ASSOCIATIONS.value} 
+                ON {TableNames.FINDINGS.value}.{ColumnNames.ID} = {TableNames.FINDING_TICKET_ASSOCIATIONS.value}.{ColumnNames.FINDING_ID}            
+            LEFT JOIN {self.catalog_table_prefix}{TableNames.TICKETS.value}
+                ON {TableNames.FINDING_TICKET_ASSOCIATIONS.value}.{ColumnNames.TICKET_ID} = {TableNames.TICKETS.value}.{ColumnNames.ID}            
+            LEFT JOIN {self.catalog_table_prefix}{TableNames.USER_SLA.value} 
+                ON {TableNames.FINDINGS.value}.{ColumnNames.ID} = {TableNames.USER_SLA.value}.{ColumnNames.ID}     
+            LEFT JOIN {self.catalog_table_prefix}{TableNames.RESOURCE_TO_SCOPES.value}  ON
+                    {TableNames.FINDINGS.value}.{ColumnNames.MAIN_RESOURCE_ID} = {TableNames.RESOURCE_TO_SCOPES.value}.{ColumnNames.RESOURCE_ID}         
             WHERE {TableNames.FINDINGS.value}.{ColumnNames.PACKAGE_NAME} IS NOT NULL
             AND ({TableNames.FINDINGS.value}.{ColumnNames.ID} <> {TableNames.AGGREGATION_GROUPS.value}.{ColumnNames.MAIN_FINDING_ID}
             OR {TableNames.FINDINGS.value}.{ColumnNames.AGGREGATION_GROUP_ID} is null)
         """
 
-        # todo -> also join the following tables:
-        #  resource_to_scopes,
-        #  scope_groups,
-        #  finding_ticket_associations,
-        #  tickets,
-        #  user_sla
+        # todo -> check if should use:
+        #  WHERE {TableNames.FINDINGS.value}.{ColumnNames.PACKAGE_NAME} IS NOT NULL
 
+        result_df = self.join_scope_group(base_sql, spark)
 
-        # Execute view creation
-        spark.sql(sql_str)
-        print(f"✅ Created temporary view: {view_name}")
+        result_df.createOrReplaceTempView(view_name)
+        print(f"✅ Temporary view '{view_name}' created successfully")
 
-        # Read the view as a DataFrame
-        df: DataFrame = spark.table(view_name)
-
-        # Log row count for debugging
-        row_count: int = df.count()
+        row_count: int = result_df.count()
         print(f"📊 Base findings view contains {row_count:,} rows")
 
-        return df
+        return result_df
+
+
+    def join_scope_group(self, base_sql, spark):
+        print("  Step 1: Executing base SQL query...")
+        base_df = spark.sql(base_sql)
+        # Step 2: Use DataFrame API to explode scope_ids and join scope_groups
+        print("  Step 2: Exploding scope_ids array...")
+        result_df = base_df.withColumn(
+            ColumnNames.SCOPE_ID,
+            explode_outer(col(ColumnNames.SCOPE_IDS))
+        )
+        # Step 3: Join with scope_groups table
+        print("  Step 3: Joining with scope_groups...")
+        scope_groups = spark.table(f"{self.catalog_table_prefix}{TableNames.SCOPE_GROUPS.value}")
+        result_df = result_df.join(
+            scope_groups,
+            col(ColumnNames.SCOPE_ID) == col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.ID}"),
+            "left"
+        ).select(
+            col("*"),  # All columns from base_df
+            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.ID}").alias("scope_group_id"),
+            col(f"{TableNames.SCOPE_GROUPS.value}.{ColumnNames.NAME}").alias("scope_group_name")
+        )
+        return result_df
 
     def column_with_alias(self, table: str, col_name: str, schema: StructType) -> str:
         alias = Schemas.get_alias_for_field(schema, col_name)

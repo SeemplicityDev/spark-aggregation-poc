@@ -49,9 +49,8 @@ class ImportService(FindingsImporterInterface):
         # Define table categories
         large_tables = ["findings", "findings_scores", "user_status", "findings_info", "findings_additional_data", "plain_resources"]
         medium_tables = ["finding_sla_rule_connections"]
-        small_tables = ["statuses", "aggregation_groups", "aggregation_rules", "aggregation_rules_findings_excluder", "scoring_rules", "selection_rules"]
-
-        loaded_tables = {}
+        small_tables = ["statuses", "aggregation_groups", "aggregation_rules", "aggregation_rules_findings_excluder", "scoring_rules", "selection_rules",
+                        "resource_to_scopes", "scope_groups", "finding_ticket_associations", "tickets", "user_sla"]
 
         # 1. Load Large Tables (L) - Use batched multi-connection approach
         print("\n--- Loading Large Tables (Batched Multi-Connection) ---")

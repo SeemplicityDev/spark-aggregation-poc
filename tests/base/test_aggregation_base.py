@@ -82,8 +82,20 @@ class TestAggregationBase:
         self.create_selection_rules_data(spark)
         print(f"✅ {TableNames.SELECTION_RULES.value}: 0 rows (empty)")
 
-        # self.create_aggregation_rules_data(spark)
-        # print(f"✅ {TableNames.AGGREGATION_RULES.value}: 2 rows")
+        self.create_resource_to_scopes_data(spark)
+        print(f"✅ {TableNames.RESOURCE_TO_SCOPES.value}: created")
+
+        self.create_scope_groups_data(spark)
+        print(f"✅ {TableNames.SCOPE_GROUPS.value}: created")
+
+        self.create_finding_ticket_associations_data(spark)
+        print(f"✅ {TableNames.FINDING_TICKET_ASSOCIATIONS.value}: created")
+
+        self.create_tickets_data(spark)
+        print(f"✅ {TableNames.TICKETS.value}: created")
+
+        self.create_user_sla_data(spark)
+        print(f"✅ {TableNames.USER_SLA.value}: created")
 
         print("\n=== All Temporary Views Created with SchemaRegistry ===")
 
@@ -126,6 +138,61 @@ class TestAggregationBase:
         df = spark.createDataFrame(findings_scores_data, schema)
         df.createOrReplaceTempView(TableNames.FINDINGS_SCORES.value)
         return df
+
+    def create_resource_to_scopes_data(self, spark):
+        """Create resource_to_scopes test data"""
+        schema = Schemas.resource_to_scopes_schema()
+
+        # Map resource 4 to scopes [1, 2]
+        data = [
+            (4, [1, 2])  # resource_id, scope_ids (array)
+        ]
+
+        df = spark.createDataFrame(data, schema)
+        df.createOrReplaceTempView(TableNames.RESOURCE_TO_SCOPES.value)
+
+    def create_scope_groups_data(self, spark):
+        """Create scope_groups test data"""
+        schema = Schemas.scope_groups_schema()
+
+        data = [
+            (1, "Production Scope", True, None, False),  # id, name, editable, created_by, root
+            (2, "Development Scope", True, None, False),
+            (3, "Test Scope", True, None, False),
+        ]
+
+        df = spark.createDataFrame(data, schema)
+        df.createOrReplaceTempView(TableNames.SCOPE_GROUPS.value)
+
+    def create_finding_ticket_associations_data(self, spark):
+        """Create finding_ticket_associations test data"""
+        schema = Schemas.finding_ticket_associations_schema()
+
+        # Empty for now - can add associations between findings and tickets
+        data = []
+
+        df = spark.createDataFrame(data, schema)
+        df.createOrReplaceTempView(TableNames.FINDING_TICKET_ASSOCIATIONS.value)
+
+    def create_tickets_data(self, spark):
+        """Create tickets test data"""
+        schema = Schemas.tickets_schema()
+
+        # Empty for now - can add ticket data
+        data = []
+
+        df = spark.createDataFrame(data, schema)
+        df.createOrReplaceTempView(TableNames.TICKETS.value)
+
+    def create_user_sla_data(self, spark):
+        """Create user_sla test data"""
+        schema = Schemas.user_sla_schema()
+
+        # Empty for now - can add SLA data
+        data = []
+
+        df = spark.createDataFrame(data, schema)
+        df.createOrReplaceTempView(TableNames.USER_SLA.value)
 
 
     def validate_columns_schema(self, df: DataFrame, expected_columns: set[str]) -> None:

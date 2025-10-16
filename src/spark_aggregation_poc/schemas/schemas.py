@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Dict, Union
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType,
-    BooleanType, DoubleType, ArrayType, LongType
+    BooleanType, DoubleType, ArrayType, LongType, TimestampType, DateType
 )
 
 
@@ -135,6 +135,45 @@ class ColumnNames:
     SELECTION_RULE_ID = "selection_rule_id"
     SCOPE_GROUP = "scope_group"
 
+    # resource_to_scopes columns
+    # RESOURCE_ID = "resource_id"
+    SCOPE_IDS = "scope_ids"
+    SCOPE_ID = "scope_id"
+
+    # scope_groups columns
+    NAME = "name"
+    # EDITABLE = "editable"
+    # CREATED_BY = "created_by"
+    ROOT = "root"
+
+    # finding_ticket_associations columns
+    TICKET_ID = "ticket_id"
+
+    # tickets columns
+    TICKET_ENDPOINT_ID = "ticket_endpoint_id"
+    TICKET_PROVIDER_ID = "ticket_provider_id"
+    FIELD_MAPPING_DEFINITION_ID = "field_mapping_definition_id"
+    FIELD_MAPPING_ID = "field_mapping_id"
+    EXTERNAL_ID = "external_id"
+    EXTERNAL_STATUS = "external_status"
+    STATUS = "status"
+    FAILED_TO_CLOSE = "failed_to_close"
+    FAILED_TO_REOPEN = "failed_to_reopen"
+    ASSIGNEE = "assignee"
+    SPRINT = "sprint"
+    # CREATED_TIME = "created_time"
+    CREATED_BY_REMEDIATION_QUEUE_ID = "created_by_remediation_queue_id"
+    # UPDATED_BY = "updated_by"
+    # UPDATED_TIME = "updated_time"
+    SYNC_ATTACHMENTS = "sync_attachments"
+    LAST_ATTACHMENT_TIME = "last_attachment_time"
+    LAST_STATUS_UPDATE_TIME = "last_status_update_time"
+    # DUE_DATE = "due_date"
+
+    # user_sla columns
+    NEW_DUE_DATE = "new_due_date"
+    USER_ID = "user_id"
+
 
 class TableNames(str, Enum):
     """Table name constants"""
@@ -153,6 +192,11 @@ class TableNames(str, Enum):
     FINDING_GROUP_ASSOCIATION = "finding_group_association"
     FINDING_GROUP_ROLLUP = "finding_group_rollup"
     BASE_FINDINGS_VIEW = "base_findings_view"
+    RESOURCE_TO_SCOPES = "resource_to_scopes"
+    SCOPE_GROUPS = "scope_groups"
+    FINDING_TICKET_ASSOCIATIONS = "finding_ticket_associations"
+    TICKETS = "tickets"
+    USER_SLA = "user_sla"
 
 class MetadataKeys:
     ID_COLUMN = "id_column"
@@ -382,6 +426,77 @@ class Schemas:
             StructField(ColumnNames.AGGREGATION_RULE_DEFINITION_ID, IntegerType(), nullable=True),
         ])
 
+    @staticmethod
+    def resource_to_scopes_schema() -> StructType:
+        """Schema for resource_to_scopes table"""
+        return StructType([
+            StructField(ColumnNames.RESOURCE_ID, IntegerType(), nullable=False,
+                        metadata={MetadataKeys.ID_COLUMN: True}),
+            StructField(ColumnNames.SCOPE_IDS, ArrayType(IntegerType()), nullable=False),
+        ])
+
+    @staticmethod
+    def scope_groups_schema() -> StructType:
+        """Schema for scope_groups table"""
+        return StructType([
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={MetadataKeys.ID_COLUMN: True}),
+            StructField(ColumnNames.NAME, StringType(), nullable=False),
+            StructField(ColumnNames.EDITABLE, BooleanType(), nullable=True),
+            StructField(ColumnNames.CREATED_BY, StringType(), nullable=True),
+            StructField(ColumnNames.ROOT, BooleanType(), nullable=True),
+        ])
+
+    @staticmethod
+    def finding_ticket_associations_schema() -> StructType:
+        """Schema for finding_ticket_associations table"""
+        return StructType([
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={MetadataKeys.ID_COLUMN: True}),
+            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.TICKET_ID, IntegerType(), nullable=False),
+        ])
+
+    @staticmethod
+    def tickets_schema() -> StructType:
+        """Schema for tickets table"""
+        return StructType([
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={MetadataKeys.ID_COLUMN: True}),
+            StructField(ColumnNames.FINDING_ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.TICKET_ENDPOINT_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.TICKET_PROVIDER_ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.FIELD_MAPPING_DEFINITION_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.FIELD_MAPPING_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.EXTERNAL_ID, StringType(), nullable=False),
+            StructField(ColumnNames.EXTERNAL_STATUS, StringType(), nullable=False),
+            StructField(ColumnNames.STATUS, StringType(), nullable=False),  # ticketstatusenum
+            StructField(ColumnNames.FAILED_TO_CLOSE, BooleanType(), nullable=False),
+            StructField(ColumnNames.FAILED_TO_REOPEN, BooleanType(), nullable=False),
+            StructField(ColumnNames.ASSIGNEE, IntegerType(), nullable=True),
+            StructField(ColumnNames.SPRINT, StringType(), nullable=True),
+            StructField(ColumnNames.CREATED_BY, StringType(), nullable=True),
+            StructField(ColumnNames.CREATED_TIME, TimestampType(), nullable=False),
+            StructField(ColumnNames.CREATED_BY_REMEDIATION_QUEUE_ID, IntegerType(), nullable=True),
+            StructField(ColumnNames.UPDATED_BY, StringType(), nullable=True),
+            StructField(ColumnNames.UPDATED_TIME, TimestampType(), nullable=False),
+            StructField(ColumnNames.SYNC_ATTACHMENTS, BooleanType(), nullable=True),
+            StructField(ColumnNames.LAST_ATTACHMENT_TIME, TimestampType(), nullable=True),
+            StructField(ColumnNames.LAST_STATUS_UPDATE_TIME, TimestampType(), nullable=True),
+            StructField(ColumnNames.DUE_DATE, DateType(), nullable=True),
+        ])
+
+    @staticmethod
+    def user_sla_schema() -> StructType:
+        """Schema for user_sla table"""
+        return StructType([
+            StructField(ColumnNames.ID, IntegerType(), nullable=False,
+                        metadata={MetadataKeys.ID_COLUMN: True}),
+            StructField(ColumnNames.NEW_DUE_DATE, DateType(), nullable=False),
+            StructField(ColumnNames.USER_ID, IntegerType(), nullable=False),
+            StructField(ColumnNames.UPDATED_TIME, TimestampType(), nullable=False),
+        ])
+
     @classmethod
     def finding_group_association_schema(cls) -> StructType:
         """Schema for finding_group_association output"""
@@ -423,6 +538,11 @@ class Schemas:
             TableNames.AGGREGATION_RULES.value: Schemas.aggregation_rules_schema(),
             TableNames.FINDING_GROUP_ASSOCIATION.value: Schemas.finding_group_association_schema(),
             TableNames.FINDING_GROUP_ROLLUP.value: Schemas.finding_group_rollup_base_schema(),
+            TableNames.RESOURCE_TO_SCOPES.value: cls.resource_to_scopes_schema(),
+            TableNames.SCOPE_GROUPS.value: cls.scope_groups_schema(),
+            TableNames.FINDING_TICKET_ASSOCIATIONS.value: cls.finding_ticket_associations_schema(),
+            TableNames.TICKETS.value: cls.tickets_schema(),
+            TableNames.USER_SLA.value: cls.user_sla_schema(),
         }
         return schema_map[table_name]
 

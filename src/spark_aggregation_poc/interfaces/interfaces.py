@@ -37,10 +37,10 @@ class UpdatePlannerInterface(ABC):
         pass
 
 
-class AggregatedFindingsExporterInterface(ABC):
+class AggregationUpdatesExporterInterface(ABC):
 
     @abstractmethod
-    def export_aggregated_findings_changes(self, df: DataFrame) -> None:
+    def export_aggregation_updates(self, df: DataFrame) -> None:
         pass
 
 

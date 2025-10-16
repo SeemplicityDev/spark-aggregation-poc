@@ -4,7 +4,7 @@ from spark_aggregation_poc.dal.file_dal import FileDal
 from spark_aggregation_poc.dal.catalog_dal import CatalogDal
 from spark_aggregation_poc.dal.relational_dal import RelationalDal
 from spark_aggregation_poc.interfaces.interfaces import FindingsImporterInterface, FindingsAggregatorInterface, \
-    AggregatedFindingsExporterInterface, \
+    AggregationUpdatesExporterInterface, \
     FilterConfigParserInterface, CatalogDalInterface, UpdatePlannerInterface, RelationalDalInterface, \
     FileDalInterface
 from spark_aggregation_poc.services.aggregation.aggregation_service import \
@@ -34,12 +34,12 @@ class Factory:
 
 
     @classmethod
-    def create_change_calculator(cls, config: Config) -> UpdatePlannerInterface:
+    def create_update_planner(cls, config: Config) -> UpdatePlannerInterface:
         return UpdatePlannerService.create_update_planner_service(config=config)
 
 
     @classmethod
-    def create_exporter(cls, config: Config) -> AggregatedFindingsExporterInterface:
+    def create_exporter(cls, config: Config) -> AggregationUpdatesExporterInterface:
         catalog_dal: CatalogDalInterface = CatalogDal.create_catalog_dal(config=config)
         file_dal: FileDalInterface = FileDal.create_file_dal(config=config)
         return ExportService.create_export_service(config=config, catalog_dal=catalog_dal, file_dal=file_dal)

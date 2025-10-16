@@ -1,14 +1,14 @@
 from pyspark.sql import DataFrame
 
 from spark_aggregation_poc.config.config import Config
-from spark_aggregation_poc.interfaces.interfaces import AggregatedFindingsExporterInterface, CatalogDalInterface, \
+from spark_aggregation_poc.interfaces.interfaces import AggregationUpdatesExporterInterface, CatalogDalInterface, \
     FileDalInterface
 
 
-class ExportService(AggregatedFindingsExporterInterface):
+class ExportService(AggregationUpdatesExporterInterface):
 
     @classmethod
-    def create_export_service(cls, config: Config, catalog_dal: CatalogDalInterface, file_dal: FileDalInterface) -> AggregatedFindingsExporterInterface:
+    def create_export_service(cls, config: Config, catalog_dal: CatalogDalInterface, file_dal: FileDalInterface) -> AggregationUpdatesExporterInterface:
         cls._allow_init = True
         result = ExportService(config, catalog_dal, file_dal)
         cls._allow_init = False
@@ -23,5 +23,5 @@ class ExportService(AggregatedFindingsExporterInterface):
 
 
 
-    def export_aggregated_findings_changes(self, df: DataFrame) -> None:
+    def export_aggregation_updates(self, df: DataFrame) -> None:
         pass
